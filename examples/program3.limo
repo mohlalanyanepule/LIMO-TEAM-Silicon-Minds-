@@ -1,0 +1,40 @@
+# =====================================================
+# program3.limo — Hazard Demonstration
+# Silicon Minds · CS3520 · LIMO
+# =====================================================
+# Demonstrates:
+#   1. RAW hazard (add followed by add using result)
+#   2. Load-use hazard (load followed by dependent add)
+#   3. Control hazard (branch taken)
+#
+# Expected final: x10 = 60
+# =====================================================
+
+        # ---- Case 1: RAW hazard ----
+        eketsa-haufi x5, lefela, 10        # x5 = 10
+        eketsa-haufi x6, lefela, 20        # x6 = 20
+        eketsa       x7, x5, x6            # x7 = 30  (RAW: depends on x5, x6)
+        eketsa       x8, x7, x5            # x8 = 40  (RAW on x7)
+
+        # ---- Case 2: Load-use hazard ----
+        # First store a value to memory
+        eketsa-haufi x9, lefela, 50        # x9 = 50
+        boloka       x9, 0(x2)             # MEM[x2+0] = 50
+
+        # Then load it and immediately use it
+        kenya        x10, 0(x2)            # x10 = MEM[x2+0] = 50
+        eketsa       x10, x10, x5          # x10 = 50 + 10 = 60 (load-use stall)
+
+        # ---- Case 3: Control hazard ----
+        eketsa-haufi x11, lefela, 1        # x11 = 1
+        eketsa-haufi x12, lefela, 1        # x12 = 1
+        hlahloba     x11, x12, target      # branch taken (beq x11, x12, target)
+
+        # These instructions should be flushed
+        eketsa-haufi x13, lefela, 99       # x13 = 99  (should NOT execute)
+        eketsa-haufi x14, lefela, 99       # x14 = 99  (should NOT execute)
+
+target: # Branch lands here
+        eketsa-haufi x15, lefela, 7        # x15 = 7
+
+fin:    hlahloba     lefela, lefela, fin
