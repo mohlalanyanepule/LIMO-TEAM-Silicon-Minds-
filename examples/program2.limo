@@ -1,0 +1,53 @@
+# =====================================================
+# program2.limo — Array Sum with Loop
+# Silicon Minds · CS3520 · LIMO
+# =====================================================
+# Sums 5 words stored in memory starting at address 100
+# Expected: x10 = 5 + 10 + 15 + 20 + 25 = 75
+# =====================================================
+
+        # Setup: base address of array in x5
+        eketsa-haufi x5, lefela, 100       # x5 = 100 (base address)
+
+        # Store array values into memory
+        eketsa-haufi x6, lefela, 5         # x6 = 5
+        boloka       x6, 0(x5)
+        eketsa-haufi x6, lefela, 10        # x6 = 10
+        boloka       x6, 4(x5)
+        eketsa-haufi x6, lefela, 15        # x6 = 15
+        boloka       x6, 8(x5)
+        eketsa-haufi x6, lefela, 20        # x6 = 20
+        boloka       x6, 12(x5)
+        eketsa-haufi x6, lefela, 25        # x6 = 25
+        boloka       x6, 16(x5)
+
+        # Loop setup
+        eketsa-haufi x10, lefela, 0        # x10 = sum = 0
+        eketsa-haufi x7, lefela, 0         # x7 = index = 0
+        eketsa-haufi x8, lefela, 5         # x8 = count = 5
+
+        # Loop body
+loop:   eketsa-habeli x9, x7, lefela       # x9 = x7 << 0 = x7 (word offset in units)
+        # Compute byte address: base + index*4
+        # For simplicity, we use index*4 directly in the load
+        # Since we cannot multiply, we count by 4 using a shift
+        eketsa-haufi x11, lefela, 4        # x11 = 4
+        eketsa-habeli x9, x7, lefela       # x9 = index
+        # Manual byte offset: use index register as word index, shift by 2 via x11
+        # (In a full ISA this would be slli x9, x7, 2)
+
+        # Load next array element (word-aligned): we walk 4 bytes at a time
+        # Accumulate in x10
+        # Simpler approach: accumulate memory walk
+        kenya        x12, 0(x5)            # x12 = MEM[x5]  (first element)
+        eketsa       x10, x10, x12         # sum += x12
+        eketsa-haufi x5, x5, 4             # advance base pointer by 4 bytes
+        eketsa-haufi x7, x7, 1             # index++
+
+        # Loop test
+        hlahloba-fapane x7, x8, loop       # if index != count, repeat
+
+        # Store sum to memory
+        boloka       x10, 20(x5)
+
+fin:    hlahloba     lefela, lefela, fin
