@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIMO Simulator — Silicon Minds</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <h1>LIMO Simulator</h1>
+    <span class="badge">Silicon Minds · CS3520</span>
+  </header>
+
+  <main>
+    <section class="panel editor-panel">
+      <h2>Editor</h2>
+      <textarea id="editor" spellcheck="false" placeholder="Type LIMO assembly here...
+
+eketsa-haufi x5, lefela, 10
+eketsa-haufi x6, lefela, 20
+eketsa x7, x5, x6"></textarea>
+      <div class="controls">
+        <button id="assemble">Assemble</button>
+        <button id="load-example">Load Example</button>
+      </div>
+    </section>
+
+    <section class="panel output-panel">
+      <h2>Machine Code</h2>
+      <table id="output">
+        <thead>
+          <tr><th>Address</th><th>Hex</th><th>Binary</th><th>Source</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>LIMO — a Sesotho-language processor derived from RISC-V RV32I</p>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
