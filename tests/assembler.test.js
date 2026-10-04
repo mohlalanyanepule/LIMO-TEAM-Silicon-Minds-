@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assemble, AssemblerError } from '../src/assembler.js';
+import { assemble, AssemblerError } from '../assembler.js';
 
 describe('LIMO Assembler', () => {
   describe('R-type instructions', () => {
