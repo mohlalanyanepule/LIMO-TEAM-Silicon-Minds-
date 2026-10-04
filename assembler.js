@@ -71,7 +71,7 @@ export class AssemblerError extends Error {
 // ---- Helpers ----
 function parseRegister(token, line) {
   const name = token.trim().toLowerCase();
-  if (!(name in REGISTERS)) {
+  if (!Object.hasOwn(REGISTERS, name)) {
     throw new AssemblerError(`Unknown register "${token}" (use x0-x15 or Sesotho name)`, line);
   }
   return REGISTERS[name];
@@ -120,7 +120,7 @@ export function assemble(source) {
     const labelMatch = body.match(/^([a-zA-Z_][\w'-]*)\s*:\s*(.*)$/);
     if (labelMatch) {
       const label = labelMatch[1];
-      if (label in labels) {
+      if (Object.hasOwn(labels, label)) {
         throw new AssemblerError(`Duplicate label "${label}"`, line);
       }
       labels[label] = address;
@@ -223,7 +223,7 @@ function encodeBranch(mnemonic, args, address, labels, spec, line) {
   const rs1 = parseRegister(args[0], line);
   const rs2 = parseRegister(args[1], line);
   const label = args[2];
-  if (!(label in labels)) {
+  if (!Object.hasOwn(labels, label)) {
     throw new AssemblerError(`Undefined label "${label}"`, line);
   }
   const target = labels[label];
@@ -255,7 +255,7 @@ function encodeInstruction(text, address, labels, line) {
   const mnemonic = tokens[0].toLowerCase();
   const args = tokens.slice(1);
 
-  if (!(mnemonic in INSTRUCTIONS)) {
+  if (!Object.hasOwn(INSTRUCTIONS, mnemonic)) {
     throw new AssemblerError(`Unknown mnemonic "${mnemonic}"`, line);
   }
 

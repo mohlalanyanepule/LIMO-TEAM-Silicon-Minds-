@@ -86,5 +86,34 @@ hlahloba x0, x0, loop`;
     it('rejects wrong operand count', () => {
       expect(() => assemble('eketsa x5, x6')).toThrow(/needs 3 operands/);
     });
+
+    it('rejects a genuinely duplicated label', () => {
+      const src = `a: eketsa-haufi x1, x0, 1
+a: eketsa-haufi x1, x0, 2`;
+      expect(() => assemble(src)).toThrow(/Duplicate label/);
+    });
+
+    it('accepts labels that shadow Object.prototype keys', () => {
+      const src = `constructor: eketsa-haufi x1, x0, 1
+hlahloba x0, x0, constructor`;
+      const { labels, instructions } = assemble(src);
+      expect(labels.constructor).toBe(0);
+      expect(instructions).toHaveLength(2);
+    });
+  });
+
+  describe('Mnemonic and register lookup', () => {
+    it('does not treat an inherited property as a valid mnemonic', () => {
+      expect(() => assemble('constructor x5, x6, x7')).toThrow(/Unknown mnemonic/);
+      expect(() => assemble('toString x5, x6, x7')).toThrow(/Unknown mnemonic/);
+    });
+
+    it('does not treat an inherited property as a valid register', () => {
+      expect(() => assemble('eketsa constructor, x1, x2')).toThrow(/Unknown register/);
+    });
+
+    it('reports an undefined label that shadows an Object.prototype key', () => {
+      expect(() => assemble('hlahloba x0, x0, constructor')).toThrow(/Undefined label/);
+    });
   });
 });
