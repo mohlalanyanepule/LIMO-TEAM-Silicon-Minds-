@@ -49,7 +49,7 @@ eketsa-haufi x0, x0, 0
 target: eketsa-haufi x0, x0, 0`;
       const { instructions } = assemble(src);
       // offset = 8, funct3=000, opcode=1100011
-      expect(instructions[0].hex.slice(-3)).toBe('263');
+      expect(instructions[0].hex.slice(-3)).toBe('463');
     });
 
     it('rejects undefined label', () => {
