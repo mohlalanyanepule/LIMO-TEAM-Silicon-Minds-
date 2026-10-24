@@ -9,16 +9,19 @@
 
 This document defines exactly what each pipeline register carries, cycle by cycle. It is the contract between the five stages: what one stage produces, the next reads.
 
+Design decision (A6c): **branches are resolved in EX.** The branch comparison and target are computed in EX, so EX/MEM does not need to carry them. A taken branch flushes the two younger instructions in IF/ID and ID/EX.
+
 ---
 
 ## IF/ID — Instruction Fetch → Instruction Decode
 
 | Field | Width | Source | Meaning |
 |-------|-------|--------|---------|
+| pc | 32 | IF | Address of this instruction |
 | pc_plus_4 | 32 | IF | Address of the next instruction (PC+4) |
 | instruction | 32 | IF | The fetched 32-bit instruction word |
 
-**Total width:** 64 bits
+**Total width:** 96 bits
 
 ---
 
@@ -32,18 +35,20 @@ This document defines exactly what each pipeline register carries, cycle by cycl
 | MemRead | 1 | Control | Data memory read enable |
 | MemWrite | 1 | Control | Data memory write enable |
 | MemToReg | 1 | Control | 0 = ALU result, 1 = memory data |
-| Branch | 1 | Control | Branch flag |
-| PCSrc | 1 | Control | Next PC select |
-| pc_plus_4 | 32 | IF/ID | For branch target computation |
+| Branch | 1 | Control | Instruction is a branch |
+| PCSrc | 1 | Control | Redirect the PC if the branch is taken |
+| branchCompare | 1 | Control | 0 = branch if equal, 1 = branch if not equal |
+| pc | 32 | IF/ID | Address of this instruction (branch target base) |
+| pc_plus_4 | 32 | IF/ID | Next sequential address |
 | rs1_value | 32 | Register file | Value of rs1 |
 | rs2_value | 32 | Register file | Value of rs2 |
 | immediate | 32 | Sign-extend | Sign-extended immediate |
-| rs1_addr | 4 | Instruction | rs1 index (for forwarding) |
-| rs2_addr | 4 | Instruction | rs2 index (for forwarding) |
+| rs1_addr | 4 | Instruction | rs1 index (for hazard checks and forwarding) |
+| rs2_addr | 4 | Instruction | rs2 index (for hazard checks and forwarding) |
 | rd_addr | 4 | Instruction | rd index |
-| funct3 | 3 | Instruction | For branch comparison selection |
+| is_bubble | 1 | Hazard unit | 1 = this slot holds a bubble (does nothing) |
 
-**Total width:** 154 bits (11 control + 32 + 32 + 32 + 32 + 4 + 4 + 4 + 3)
+**Total width:** 185 bits (12 control + 32 + 32 + 32 + 32 + 32 + 4 + 4 + 4 + 1)
 
 ---
 
@@ -55,14 +60,14 @@ This document defines exactly what each pipeline register carries, cycle by cycl
 | MemRead | 1 | ID/EX | Forwarded |
 | MemWrite | 1 | ID/EX | Forwarded |
 | MemToReg | 1 | ID/EX | Forwarded |
-| Branch | 1 | ID/EX | Forwarded (for PCSrc decision) |
 | alu_result | 32 | EX | ALU output (also used as memory address) |
-| rs2_value | 32 | ID/EX | For store instructions |
+| store_value | 32 | ID/EX | rs2 value, written to memory by a store |
 | rd_addr | 4 | ID/EX | For write-back |
-| zero | 1 | EX | Comparison result (for branches) |
-| branch_target | 32 | EX | Target if branch taken |
+| is_bubble | 1 | ID/EX | Bubble flag |
 
-**Total width:** 106 bits (5 control + 32 + 32 + 4 + 1 + 32)
+**Total width:** 73 bits (4 control + 32 + 32 + 4 + 1)
+
+Branch outcome and branch target are **not** stored here, because the branch is resolved in EX.
 
 ---
 
@@ -75,8 +80,9 @@ This document defines exactly what each pipeline register carries, cycle by cycl
 | mem_data | 32 | Data memory | Loaded value |
 | alu_result | 32 | EX/MEM | ALU result |
 | rd_addr | 4 | EX/MEM | Destination register |
+| is_bubble | 1 | EX/MEM | Bubble flag |
 
-**Total width:** 70 bits (2 control + 32 + 32 + 4)
+**Total width:** 71 bits (2 control + 32 + 32 + 4 + 1)
 
 ---
 
@@ -84,23 +90,33 @@ This document defines exactly what each pipeline register carries, cycle by cycl
 
 | Register | Width (bits) |
 |----------|--------------|
-| IF/ID | 64 |
-| ID/EX | 154 |
-| EX/MEM | 106 |
-| MEM/WB | 70 |
+| IF/ID | 96 |
+| ID/EX | 185 |
+| EX/MEM | 73 |
+| MEM/WB | 71 |
 
-The register fields are 4 bits wide because LIMO has 16 registers, so each forwarding comparator is 4 bits wide.
+Register fields are 4 bits wide because LIMO has 16 registers, so each forwarding comparator is 4 bits wide.
 
 ---
 
 ## Notes
 
-- **Branch target.** RISC-V branch offsets are relative to the address of the branch instruction itself, which is `pc_plus_4 - 4`. The branch target is therefore computed as `(pc_plus_4 - 4) + immediate`.
-- **Bubbles and flushes.** A stall or flush inserts a bubble: all control bits in the affected register are set to 0, so the instruction does nothing as it moves down the pipeline.
+- **Branch target:** `pc + immediate`, computed in EX from the `pc` carried in ID/EX.
+- **Bubbles:** a stall or flush inserts a bubble. All control bits are 0 and `is_bubble` = 1, so the slot does nothing as it moves down the pipeline.
+- **Simulator-only data:** the simulator also keeps the decoded instruction text of each instruction for the narration and datapath views. This is not part of the hardware.
+- **Step Back:** the simulator stores one snapshot per cycle (all four pipeline registers, the register file, data memory, PC and counters), so going back one step restores the previous snapshot.
 
 ---
 
-## Sample Cycle Trace
+## Hazard Handling
+
+**Current baseline (M3, no forwarding).** An instruction in ID stalls while a producer of one of its source registers is in ID/EX or EX/MEM. It proceeds once the producer reaches WB, because the register file is written before it is read in the same cycle.
+
+**Target design (M4).** Forwarding paths EX/MEM → EX and MEM/WB → EX (ForwardA / ForwardB), a one-cycle load-use stall, and a Forwarding ON/OFF switch.
+
+---
+
+## Sample Cycle Trace (target design, with forwarding)
 
 For the program:
 
@@ -120,7 +136,9 @@ eketsa x7, x5, x6
 | 6 | | | | add x7 | addi x6 |
 | 7 | | | | | add x7 |
 
-**No stalls.** All RAW dependencies are resolved by forwarding (EX/MEM and MEM/WB).
+**No stalls.** With forwarding, x6 comes from EX/MEM and x5 from MEM/WB.
+
+Without forwarding (the M3 baseline), `add x7` waits in ID for cycles 4–6 and the program takes 9 cycles with 2 stalls.
 
 ---
 
