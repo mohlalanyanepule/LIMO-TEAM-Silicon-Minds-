@@ -30,6 +30,29 @@ describe('LIMO Assembler', () => {
     });
   });
 
+  describe('Immediates', () => {
+    it('encodes the maximum immediate 2047', () => {
+      expect(assemble('eketsa-haufi x5, x0, 2047').instructions[0].hex).toBe('0x7FF00293');
+    });
+
+    it('encodes the minimum immediate -2048', () => {
+      expect(assemble('eketsa-haufi x5, x0, -2048').instructions[0].hex).toBe('0x80000293');
+    });
+
+    it('encodes -1 as all ones', () => {
+      expect(assemble('eketsa-haufi x5, x0, -1').instructions[0].hex).toBe('0xFFF00293');
+    });
+
+    it('rejects 2048 and -2049', () => {
+      expect(() => assemble('eketsa-haufi x5, x0, 2048')).toThrow(AssemblerError);
+      expect(() => assemble('eketsa-haufi x5, x0, -2049')).toThrow(AssemblerError);
+    });
+
+    it('accepts hex immediates', () => {
+      expect(assemble('eketsa-haufi x5, x6, 0x0A').instructions[0].hex).toBe('0x00A30293');
+    });
+  });
+
   describe('Memory instructions', () => {
     it('encodes kenya x5, 0(x6) (lw)', () => {
       const { instructions } = assemble('kenya x5, 0(x6)');
@@ -54,6 +77,31 @@ target: eketsa-haufi x0, x0, 0`;
 
     it('rejects undefined label', () => {
       expect(() => assemble('hlahloba x5, x6, nowhere')).toThrow(AssemblerError);
+    });
+  });
+
+  describe('Full-word branch encodings', () => {
+    it('encodes forward beq x5, x6, +8', () => {
+      const src = `hlahloba x5, x6, t
+eketsa-haufi x0, x0, 0
+t: eketsa-haufi x0, x0, 0`;
+      expect(assemble(src).instructions[0].hex).toBe('0x00628463');
+    });
+
+    it('encodes backward beq x0, x0, -4', () => {
+      const src = `loop: eketsa-haufi x5, x5, 1
+hlahloba x0, x0, loop`;
+      expect(assemble(src).instructions[1].hex).toBe('0xFE000EE3');
+    });
+  });
+
+  describe('Sesotho special registers', () => {
+    it('lefela is x0', () => {
+      expect(assemble('eketsa-haufi x5, lefela, 10').instructions[0].hex).toBe('0x00A00293');
+    });
+
+    it('mokgethi is x2', () => {
+      expect(assemble('boloka x7, 0(mokgethi)').instructions[0].hex).toBe('0x00712023');
     });
   });
 
@@ -99,6 +147,20 @@ hlahloba x0, x0, constructor`;
       const { labels, instructions } = assemble(src);
       expect(labels.constructor).toBe(0);
       expect(instructions).toHaveLength(2);
+    });
+  });
+
+  describe('Error line numbers', () => {
+    // NOTE: if your AssemblerError uses a different property name
+    // (e.g. lineNumber), change e.line below.
+    it('reports the line of the bad instruction', () => {
+      try {
+        assemble('eketsa x5, x6, x7\nbogus x1, x2, x3');
+      } catch (e) {
+        expect(e.line).toBe(2);
+        return;
+      }
+      throw new Error('expected an AssemblerError');
     });
   });
 
