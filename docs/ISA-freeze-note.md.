@@ -1,0 +1,66 @@
+# LIMO — ISA Freeze Note
+
+**Silicon Minds · CS3520 · NUL · AY2026/2027**
+**Milestone 2 — Simulator Design**
+
+---
+
+## Status
+
+The LIMO instruction set architecture is **frozen** as of this milestone.
+
+| Item | Value |
+|------|-------|
+| ISA version | [v1.0 / v1.1 — fill in] |
+| Freeze date | [DD Month 2026 — fill in] |
+| Specification | `docs/ISA-specification.md` |
+| Previous milestone tag | `m1` (LIMO ISA) |
+| This milestone tag | `m2` |
+
+From this point the ISA does not change. Any further change requires written approval from the course coordinator and a new version number.
+
+---
+
+## Summary of the Frozen ISA
+
+- 32-bit load–store machine, byte-addressed, little-endian, fixed 32-bit instructions in RV32I-derived formats.
+- 16 general-purpose registers (x0–x15), so register fields are 4 bits wide. x0 (`lefela`) is hard-wired to zero; x2 is the stack pointer (`mokgethi`).
+- Sesotho assembly mnemonics, for example `eketsa` (add), `eketsa-haufi` (addi), `fokotsa` (sub), `kenya` (lw), `boloka` (sw) and `hlahloba` (beq).
+- I-type immediates range from -2048 to 2047.
+- Branches are resolved in the EX stage; a taken branch flushes two instructions (A6c).
+
+---
+
+## D1 Feedback and Our Response
+
+| # | D1 comment | Our response | Changed in ISA? | Where |
+|---|------------|--------------|-----------------|-------|
+| 1 | [paste comment] | [what we did, or why we did not change it] | [Yes / No] | [section of ISA-specification.md] |
+| 2 | [paste comment] | [what we did] | [Yes / No] | [section] |
+| 3 | [paste comment] | [what we did] | [Yes / No] | [section] |
+
+*If no feedback required changes, replace the table with:* "The D1 review requested no changes to the ISA. The ISA is frozen as specified in milestone m1."
+
+---
+
+## Changes Since m1
+
+| Change | Reason | Files updated |
+|--------|--------|---------------|
+| [e.g. corrected immediate range in section X] | [D1 comment #] | [ISA-specification.md, assembler.js, tests] |
+
+*If nothing changed, write:* "No changes since m1."
+
+---
+
+## Consistency Check
+
+| Check | Result |
+|-------|--------|
+| Assembler encodings match the specification | Verified by the unit tests in `tests/assembler.test.js` (29 tests, all passing) |
+| Hand-derived hex values for sample instructions | Checked against RV32I formats |
+| Sesotho register and mnemonic names match the live simulator | [Yes / confirm] |
+
+---
+
+*End of ISA Freeze Note — LIMO · Silicon Minds*
