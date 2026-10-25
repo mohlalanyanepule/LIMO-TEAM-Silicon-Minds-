@@ -11,8 +11,8 @@ The LIMO instruction set architecture is **frozen** as of this milestone.
 
 | Item | Value |
 |------|-------|
-| ISA version | [v1.0 / v1.1 — fill in] |
-| Freeze date | [DD Month 2026 — fill in] |
+| ISA version | v1.0 |
+| Freeze date | 25 October 2026 |
 | Specification | `docs/ISA-specification.md` |
 | Previous milestone tag | `m1` (LIMO ISA) |
 | This milestone tag | `m2` |
@@ -33,23 +33,26 @@ From this point the ISA does not change. Any further change requires written app
 
 ## D1 Feedback and Our Response
 
-| # | D1 comment | Our response | Changed in ISA? | Where |
-|---|------------|--------------|-----------------|-------|
-| 1 | [paste comment] | [what we did, or why we did not change it] | [Yes / No] | [section of ISA-specification.md] |
-| 2 | [paste comment] | [what we did] | [Yes / No] | [section] |
-| 3 | [paste comment] | [what we did] | [Yes / No] | [section] |
-
-*If no feedback required changes, replace the table with:* "The D1 review requested no changes to the ISA. The ISA is frozen as specified in milestone m1."
+The D1 review requested no changes to the ISA. The ISA is frozen as specified in milestone m1.
 
 ---
 
-## Changes Since m1
+## ISA Changes Since m1
 
-| Change | Reason | Files updated |
-|--------|--------|---------------|
-| [e.g. corrected immediate range in section X] | [D1 comment #] | [ISA-specification.md, assembler.js, tests] |
+No changes since m1.
 
-*If nothing changed, write:* "No changes since m1."
+---
+
+## Simulator Changes Since m1 (not ISA changes)
+
+The ISA is unchanged. The following simulator work was done after m1:
+
+| Change | Detail |
+|--------|--------|
+| Datapath view | The live site now shows each instruction moving through IF, ID, EX, MEM and WB, one clock cycle at a time (Step) or continuously (Run) |
+| Pipeline state | Control signals, register file (with Sesotho names), data memory and statistics (cycles, instructions, CPI, stalls, flushes) update as the program runs |
+| Halt detection | A run ends cleanly on a self-branch or at the end of the program |
+| Assembler | Unit tests added: 29 assembler tests, 122 across the project |
 
 ---
 
@@ -59,7 +62,7 @@ From this point the ISA does not change. Any further change requires written app
 |-------|--------|
 | Assembler encodings match the specification | Verified by the unit tests in `tests/assembler.test.js` (29 tests, all passing) |
 | Hand-derived hex values for sample instructions | Checked against RV32I formats |
-| Sesotho register and mnemonic names match the live simulator | [Yes / confirm] |
+| Sesotho register and mnemonic names match the live simulator | Yes |
 
 ---
 
