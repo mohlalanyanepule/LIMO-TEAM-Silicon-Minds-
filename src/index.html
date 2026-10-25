@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMO Simulator - Datapath</title>
+    <style>
+        /* =========================================
+           CSS STYLING
+           ========================================= */
+        body {
+            background-color: #1e1e1e;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            background-color: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: #005f9e;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .status-bar {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #00ff00;
+            font-family: monospace;
+            background-color: #111;
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #333;
+        }
+
+        /* The main container for the drawing */
+        #datapath-container {
+            position: relative;
+            width: 1050px;
+            height: 550px;
+            background-color: #252526;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        /* SVG Wires Layer */
+        #wires-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Hardware Boxes (ALU, Memory, etc.) */
+        .hardware-box {
+            position: absolute;
+            background-color: #3c3c3c;
+            border: 2px solid #555;
+            color: #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-family: monospace;
+            font-size: 14px;
+            border-radius: 6px;
+            z-index: 2;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* Pipeline Registers (Vertical Lines) */
+        .pipeline-register {
+            position: absolute;
+            width: 30px;
+            height: 80%;
+            top: 10%;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 2px solid #888;
+            border-right: 2px solid #888;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            color: #888;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* Wires */
+        .wire {
+            stroke: #444;
+            stroke-width: 3;
+            transition: stroke 0.3s, stroke-width 0.3s, filter 0.3s;
+            fill: none;
+        }
+
+        /* Active States (Highlighted) */
+        .wire.active {
+            stroke: #00ff00;
+            stroke-width: 4;
+            filter: drop-shadow(0 0 6px #00ff00);
+        }
+
+        .hardware-box.active {
+            border-color: #00ff00;
+            background-color: #1a3a1a;
+            color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+        }
+
+        /* Live Data Labels */
+        .wire-label {
+            position: absolute;
+            background-color: #111;
+            color: #00ff00;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #00ff00;
+            pointer-events: none;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+
+        .wire-label.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>LIMO 5-Stage Pipeline Datapath</h1>
+
+    <div class="status-bar" id="status-text">Cycle 0 | Stage: IF (Fetch)</div>
+
+    <div class="controls">
+        <button id="step-btn">Step (Next Cycle)</button>
+        <button id="reset-btn">Reset</button>
+    </div>
+
+    <div id="datapath-container">
+        <!-- SVG Layer for Wires -->
+        <svg id="wires-layer">
+            <!-- IF Stage -->
+            <path id="w-pc-im" class="wire" d="M 80 120 L 140 120"/>
+            <path id="w-im-ifid" class="wire" d="M 260 120 L 290 120"/>
+            
+            <!-- ID Stage -->
+            <path id="w-ifid-rf" class="wire" d="M 320 120 L 410 180"/>
+            <path id="w-rf-idex" class="wire" d="M 550 180 L 590 180"/>
+            
+            <!-- EX Stage -->
+            <path id="w-idex-alu" class="wire" d="M 620 180 L 720 250"/>
+            <path id="w-alu-exmem" class="wire" d="M 800 250 L 850 250"/>
+            
+            <!-- MEM Stage -->
+            <path id="w-exmem-dm" class="wire" d="M 880 250 L 880 350"/>
+            <path id="w-dm-memwb" class="wire" d="M 880 450 L 880 500 L 620 500"/>
+            
+            <!-- WB Stage -->
+            <path id="w-memwb-rf" class="wire" d="M 590 500 L 480 500 L 480 280"/>
+        </svg>
+
+        <!-- Hardware Units -->
+        <div id="pc" class="hardware-box" style="left: 30px; top: 100px; width: 50px; height: 40px;">PC</div>
+        <div id="im" class="hardware-box" style="left: 140px; top: 80px; width: 120px; height: 80px;">Instruction<br>Memory</div>
+        
+        <div id="rf" class="hardware-box" style="left: 410px; top: 130px; width: 140px; height: 100px;">Register File</div>
+        
+        <div id="alu" class="hardware-box" style="left: 720px; top: 230px; width: 80px; height: 40px;">ALU</div>
+        
+        <div id="dm" class="hardware-box" style="left: 800px; top: 350px; width: 160px; height: 100px;">Data Memory</div>
+
+        <!-- Pipeline Registers -->
+        <div id="ifid-reg" class="pipeline-register" style="left: 290px;">IF/ID</div>
+        <div id="idex-reg" class="pipeline-register" style="left: 590px;">ID/EX</div>
+        <div id="exmem-reg" class="pipeline-register" style="left: 850px;">EX/MEM</div>
+        <div id="memwb-reg" class="pipeline-register" style="left: 590px;">MEM/WB</div>
+
+        <!-- Live Data Labels (Hidden by default) -->
+        <div id="l-pc" class="wire-label" style="left: 80px; top: 90px;">0x00000000</div>
+        <div id="l-im" class="wire-label" style="left: 200px; top: 90px;">Instr: 0x0000</div>
+        <div id="l-rf" class="wire-label" style="left: 450px; top: 110px;">Val: 0x00000000</div>
+        <div id="l-alu-in" class="wire-label" style="left: 650px; top: 210px;">In: 0x00</div>
+        <div id="l-alu-out" class="wire-label" style="left: 810px; top: 220px;">Res: 0x00</div>
+        <div id="l-dm" class="wire-label" style="left: 830px; top: 320px;">Mem: 0x00</div>
+        <div id="l-wb" class="wire-label" style="left: 500px; top: 470px;">WB: 0x00000000</div>
+    </div>
+
+    <script>
+        // =========================================
+        // JAVASCRIPT SIMULATION LOGIC
+        // =========================================
+        
+        let currentCycle = 0;
+        let currentStageIndex = 0;
+        
+        // The sequence of stages for a single instruction
+        const stages = ['IF', 'ID', 'EX', 'MEM', 'WB'];
+        const stageNames = {
+            'IF': 'Instruction Fetch',
+            'ID': 'Instruction Decode',
+            'EX': 'Execute (ALU)',
+            'MEM': 'Memory Access',
+            'WB': 'Write Back'
+        };
+
+        // DOM Elements
+        const stepBtn = document.getElementById('step-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const statusText = document.getElementById('status-text');
+
+        // Helper function to generate a random hex string for demo purposes
+        function getRandomHex(bytes = 4) {
+            let max = Math.pow(16, bytes * 2);
+            return "0x" + Math.floor(Math.random() * max).toString(16).toUpperCase().padStart(bytes * 2, '0');
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.wire').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.hardware-box').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.wire-label').forEach(el => el.classList.remove('active'));
+        }
+
+        function simulateStep() {
+            clearHighlights();
+            
+            let stage = stages[currentStageIndex];
+            
+            // Update Status Bar
+            statusText.innerText = `Cycle ${currentCycle} | Stage: ${stage} (${stageNames[stage]})`;
+
+            // --- HIGHLIGHTING LOGIC BASED ON STAGE ---
+            if (stage === 'IF') {
+                // Fetch
+                document.getElementById('pc').classList.add('active');
+                document.getElementById('im').classList.add('active');
+                document.getElementById('w-pc-im').classList.add('active');
+                document.getElementById('w-im-ifid').classList.add('active');
+                
+                // Show Data
+                document.getElementById('l-pc').innerText = "PC: " + getRandomHex(4);
+                document.getElementById('l-pc').classList.add('active');
+                document.getElementById('l-im').innerText = "Instr: " + getRandomHex(4);
+                document.getElementById('l-im').classList.add('active');
+
+            } else if (stage === 'ID') {
+                // Decode
+                document.getElementById('ifid-reg').classList.add('active');
+                document.getElementById('rf').classList.add('active');
+                document.getElementById('w-ifid-rf').classList.add('active');
+                document.getElementById('w-rf-idex').classList.add('active');
+
+                document.getElementById('l-rf').innerText = "Reg Val: " + getRandomHex(4);
+                document.getElementById('l-rf').classList.add('active');
+
+            } else if (stage === 'EX') {
+                // Execute
+                document.getElementById('idex-reg').classList.add('active');
+                document.getElementById('alu').classList.add('active');
+                document.getElementById('w-idex-alu').classList.add('active');
+                document.getElementById('w-alu-exmem').classList.add('active');
+
+                document.getElementById('l-alu-in').innerText = "ALU In: " + getRandomHex(4);
+                document.getElementById('l-alu-in').classList.add('active');
+                document.getElementById('l-alu-out').innerText = "Result: " + getRandomHex(4);
+                document.getElementById('l-alu-out').classList.add('active');
+
+            } else if (stage === 'MEM') {
+                // Memory
+                document.getElementById('exmem-reg').classList.add('active');
+                document.getElementById('dm').classList.add('active');
+                document.getElementById('w-exmem-dm').classList.add('active');
+                document.getElementById('w-dm-memwb').classList.add('active');
+
+                document.getElementById('l-dm').innerText = "Mem Out: " + getRandomHex(4);
+                document.getElementById('l-dm').classList.add('active');
+
+            } else if (stage === 'WB') {
+                // Write Back
+                document.getElementById('memwb-reg').classList.add('active');
+                document.getElementById('rf').classList.add('active');
+                document.getElementById('w-memwb-rf').classList.add('active');
+
+                document.getElementById('l-wb').innerText = "Write Back: " + getRandomHex(4);
+                document.getElementById('l-wb').classList.add('active');
+            }
+
+            // Advance to next stage
+            currentStageIndex++;
+            if (currentStageIndex >= stages.length) {
+                currentStageIndex = 0; // Loop back to IF
+                currentCycle++;
+            }
+        }
+
+        function resetSimulation() {
+            clearHighlights();
+            currentCycle = 0;
+            currentStageIndex = 0;
+            statusText.innerText = "Cycle 0 | Stage: IF (Fetch)";
+        }
+
+        // Attach click events to buttons
+        stepBtn.addEventListener('click', simulateStep);
+        resetBtn.addEventListener('click', resetSimulation);
+    </script>
+</body>
+</html>
