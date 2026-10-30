@@ -1,36 +1,33 @@
-for (let i = 0; i < 16; i++) REG_NAMES['r' + i] = i;
-for (let i = 3; i < 16; i++) REG_NAMES['pokotho' + i] = i;
+import { describe, it, expect } from 'vitest';
+import { assemble, AssemblerError } from '../assembler.js';
 
-class AssemblerError extends Error {
-  constructor(line, msg) { super(`Line ${line}: ${msg}`); this.line = line; }
-}
+// Helper: split a 32-bit word into its M1 fields.
+const bits = (w, hi, lo) => (w >>> lo) & ((1 << (hi - lo + 1)) - 1);
+const hexOf = (src, i = 0) => assemble(src).instructions[i].hex;
+const wordOf = (src, i = 0) => assemble(src).instructions[i].word;
 
-const clean = s => s.toLowerCase().replace(/['\u2019]/g, '').trim();
+describe('LIMO Assembler (M1 spec: 4-bit registers, 14-bit immediates)', () => {
+  describe('R-type instructions', () => {
+    it('encodes eketsa r3, r1, r2 (add) = M1 example', () => {
+      expect(hexOf('eketsa r3, r1, r2')).toBe('0x000841B3');
+    });
 
-function parseReg(tok, line) {
-  const r = REG_NAMES[clean(tok)];
-  if (r === undefined) throw new AssemblerError(line, `Unknown register "${tok}". Use r0-r15, zero, ra, sp or a Sesotho name.`);
-  return r;
-}
+    it('encodes fokotsa r5, r6, r7 (sub)', () => {
+      expect(hexOf('fokotsa r5, r6, r7')).toBe('0x081D82B3');
+    });
 
-function parseImm(tok, line, lo, hi) {
-  const t = tok.trim();
-  if (!/^[-+]?(0x[0-9a-f]+|\d+)$/i.test(t)) throw new AssemblerError(line, `"${tok}" is not a number. Use decimal (-12) or hex (0x1F).`);
-  const neg = t.startsWith('-');
-  const body = t.replace(/^[-+]/, '');
-  const v = (neg ? -1 : 1) * Number(body);
-  if (v < lo || v > hi) throw new AssemblerError(line, `Immediate ${v} is out of range (${lo} to ${hi}).`);
-  return v;
-}
+    it('uses the RV32I funct3/funct7 for le, kapa and fokotsa', () => {
+      const le = wordOf('le r1, r2, r3');
+      const kapa = wordOf('kapa r1, r2, r3');
+      const sub = wordOf('fokotsa r1, r2, r3');
+      expect(bits(le, 13, 11)).toBe(0b111);
+      expect(bits(kapa, 13, 11)).toBe(0b110);
+      expect(bits(sub, 28, 22)).toBe(0b0100000);
+      expect(bits(le, 6, 0)).toBe(0b0110011);
+    });
 
-function parseMem(tok, line) {
-  const m = tok.trim().match(/^(.+)\(([^)]+)\)$/);
-  if (!m) throw new AssemblerError(line, `Memory operand "${tok}" must look like imm(rs1), e.g. 8(r2).`);
-  return { imm: parseImm(m[1], line, -8192, 8191), rs1: parseReg(m[2], line) };
-}
-
-function encode(def, f) {
-  let w;
-  if (def.fmt === 'R') {
-    w = (f.f7 << 22) | (f.rs2 << 18) | (f.rs1 << 14) | (def.f3 << 11) | (f.rd << 7) | def.op;
-    
+    it('accepts Sesotho register names and aliases', () => {
+      expect(hexOf('eketsa pokotho3, sekhulisa_aterese, lesupi')).toBe('0x000841B3');
+      expect(hexOf('eketsa r3, ra, sp')).toBe('0x000841B3');
+      expect(hexOf('eketsa r0, r1, r2')).toBe(hexOf('eketsa lefela, r1, r2'));
+    });
