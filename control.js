@@ -27,7 +27,7 @@ const bType = (compare) => ({
   branchCompare: compare, writesRd: 0,
 });
 
-export const CONTROL_TABLE = {
-  // Arithmetic
-  'eketsa': rType(ALU.ADD),
-  'fokotsa': rType(ALU.SUB),
+// Load word: address = rs1 + immediate, data comes from memory into rd
+const loadType = () => ({
+  RegWrite: 1, ALUSrc: 1, ALUControl: ALU.ADD,
+  MemRead: 1, MemWrite: 0, MemToReg: 1, Branch: 0, PCSrc: 0,
