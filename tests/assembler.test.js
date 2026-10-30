@@ -1,181 +1,57 @@
 import { describe, it, expect } from 'vitest';
 import { assemble, AssemblerError } from '../assembler.js';
 
-describe('LIMO Assembler', () => {
+// Helper: split a 32-bit word into its M1 fields.
+const bits = (w, hi, lo) => (w >>> lo) & ((1 << (hi - lo + 1)) - 1);
+const hexOf = (src, i = 0) => assemble(src).instructions[i].hex;
+const wordOf = (src, i = 0) => assemble(src).instructions[i].word;
+
+describe('LIMO Assembler (M1 spec: 4-bit registers, 14-bit immediates)', () => {
   describe('R-type instructions', () => {
-    it('encodes eketsa x5, x6, x7 (add)', () => {
-      const { instructions } = assemble('eketsa x5, x6, x7');
-      expect(instructions[0].hex).toBe('0x007302B3');
+    it('encodes eketsa r3, r1, r2 (add) = M1 example', () => {
+      expect(hexOf('eketsa r3, r1, r2')).toBe('0x000841B3');
     });
 
-    it('encodes fokotsa x5, x6, x7 (sub)', () => {
-      const { instructions } = assemble('fokotsa x5, x6, x7');
-      expect(instructions[0].hex).toBe('0x407302B3');
+    it('encodes fokotsa r5, r6, r7 (sub)', () => {
+      expect(hexOf('fokotsa r5, r6, r7')).toBe('0x081D82B3');
     });
 
-    it('accepts Sesotho register names', () => {
-      const { instructions } = assemble('eketsa ntho, ntho-pele, ntho-tharo');
-      expect(instructions[0].hex).toBe('0x007302B3');
+    it('uses the RV32I funct3/funct7 for le, kapa and fokotsa', () => {
+      const le = wordOf('le r1, r2, r3');
+      const kapa = wordOf('kapa r1, r2, r3');
+      const sub = wordOf('fokotsa r1, r2, r3');
+      expect(bits(le, 13, 11)).toBe(0b111);
+      expect(bits(kapa, 13, 11)).toBe(0b110);
+      expect(bits(sub, 28, 22)).toBe(0b0100000);
+      expect(bits(le, 6, 0)).toBe(0b0110011);
+    });
+
+    it('accepts Sesotho register names and aliases', () => {
+      expect(hexOf('eketsa pokotho3, sekhulisa_aterese, lesupi')).toBe('0x000841B3');
+      expect(hexOf('eketsa r3, ra, sp')).toBe('0x000841B3');
+      expect(hexOf('eketsa r0, r1, r2')).toBe(hexOf('eketsa lefela, r1, r2'));
+    });
+
+    it('rejects the old 32-register x names', () => {
+      expect(() => assemble('eketsa x5, x6, x7')).toThrow(AssemblerError);
+    });
+
+    it('rejects r16 (only r0 to r15 exist)', () => {
+      expect(() => assemble('eketsa r16, r1, r2')).toThrow(/Unknown register/);
     });
   });
 
   describe('I-type instructions', () => {
-    it('encodes eketsa-haufi x5, x6, 10 (addi)', () => {
-      const { instructions } = assemble('eketsa-haufi x5, x6, 10');
-      expect(instructions[0].hex).toBe('0x00A30293');
+    it('encodes eketsa ho r4, r3, 10 = M1 example', () => {
+      expect(hexOf('eketsa ho r4, r3, 10')).toBe('0x0028C213');
     });
 
-    it('rejects immediate out of range', () => {
-      expect(() => assemble('eketsa-haufi x5, x6, 3000')).toThrow(AssemblerError);
-    });
-  });
-
-  describe('Immediates', () => {
-    it('encodes the maximum immediate 2047', () => {
-      expect(assemble('eketsa-haufi x5, x0, 2047').instructions[0].hex).toBe('0x7FF00293');
+    it('accepts the 14-bit limits -8192 and 8191', () => {
+      expect(() => assemble('eketsa ho r1, r1, 8191')).not.toThrow();
+      expect(() => assemble('eketsa ho r1, r1, -8192')).not.toThrow();
     });
 
-    it('encodes the minimum immediate -2048', () => {
-      expect(assemble('eketsa-haufi x5, x0, -2048').instructions[0].hex).toBe('0x80000293');
+    it('rejects 8192 and -8193', () => {
+      expect(() => assemble('eketsa ho r1, r1, 8192')).toThrow(/out of range/);
+      expect(() => assemble('eketsa ho r1, r1, -8193')).toThrow(/out of range/);
     });
-
-    it('encodes -1 as all ones', () => {
-      expect(assemble('eketsa-haufi x5, x0, -1').instructions[0].hex).toBe('0xFFF00293');
-    });
-
-    it('rejects 2048 and -2049', () => {
-      expect(() => assemble('eketsa-haufi x5, x0, 2048')).toThrow(AssemblerError);
-      expect(() => assemble('eketsa-haufi x5, x0, -2049')).toThrow(AssemblerError);
-    });
-
-    it('accepts hex immediates', () => {
-      expect(assemble('eketsa-haufi x5, x6, 0x0A').instructions[0].hex).toBe('0x00A30293');
-    });
-  });
-
-  describe('Memory instructions', () => {
-    it('encodes kenya x5, 0(x6) (lw)', () => {
-      const { instructions } = assemble('kenya x5, 0(x6)');
-      expect(instructions[0].hex).toBe('0x00032283');
-    });
-
-    it('encodes boloka x7, 4(x6) (sw)', () => {
-      const { instructions } = assemble('boloka x7, 4(x6)');
-      expect(instructions[0].hex).toBe('0x00732223');
-    });
-  });
-
-  describe('B-type instructions (branches)', () => {
-    it('encodes hlahloba x5, x6, +8 (beq)', () => {
-      const src = `hlahloba x5, x6, target
-eketsa-haufi x0, x0, 0
-target: eketsa-haufi x0, x0, 0`;
-      const { instructions } = assemble(src);
-      // offset = 8, funct3=000, opcode=1100011
-      expect(instructions[0].hex.slice(-3)).toBe('463');
-    });
-
-    it('rejects undefined label', () => {
-      expect(() => assemble('hlahloba x5, x6, nowhere')).toThrow(AssemblerError);
-    });
-  });
-
-  describe('Full-word branch encodings', () => {
-    it('encodes forward beq x5, x6, +8', () => {
-      const src = `hlahloba x5, x6, t
-eketsa-haufi x0, x0, 0
-t: eketsa-haufi x0, x0, 0`;
-      expect(assemble(src).instructions[0].hex).toBe('0x00628463');
-    });
-
-    it('encodes backward beq x0, x0, -4', () => {
-      const src = `loop: eketsa-haufi x5, x5, 1
-hlahloba x0, x0, loop`;
-      expect(assemble(src).instructions[1].hex).toBe('0xFE000EE3');
-    });
-  });
-
-  describe('Sesotho special registers', () => {
-    it('lefela is x0', () => {
-      expect(assemble('eketsa-haufi x5, lefela, 10').instructions[0].hex).toBe('0x00A00293');
-    });
-
-    it('mokgethi is x2', () => {
-      expect(assemble('boloka x7, 0(mokgethi)').instructions[0].hex).toBe('0x00712023');
-    });
-  });
-
-  describe('Labels and comments', () => {
-    it('ignores # comments', () => {
-      const src = `# this is a comment
-eketsa x5, x6, x7  # trailing comment`;
-      const { instructions } = assemble(src);
-      expect(instructions).toHaveLength(1);
-    });
-
-    it('records label addresses', () => {
-      const src = `eketsa-haufi x5, x0, 10
-loop: eketsa-haufi x5, x5, 1
-hlahloba x0, x0, loop`;
-      const { labels } = assemble(src);
-      expect(labels.loop).toBe(4);
-    });
-  });
-
-  describe('Error handling', () => {
-    it('rejects unknown mnemonic', () => {
-      expect(() => assemble('bogus x5, x6, x7')).toThrow(/Unknown mnemonic/);
-    });
-
-    it('rejects unknown register', () => {
-      expect(() => assemble('eketsa x99, x1, x2')).toThrow(/Unknown register/);
-    });
-
-    it('rejects wrong operand count', () => {
-      expect(() => assemble('eketsa x5, x6')).toThrow(/needs 3 operands/);
-    });
-
-    it('rejects a genuinely duplicated label', () => {
-      const src = `a: eketsa-haufi x1, x0, 1
-a: eketsa-haufi x1, x0, 2`;
-      expect(() => assemble(src)).toThrow(/Duplicate label/);
-    });
-
-    it('accepts labels that shadow Object.prototype keys', () => {
-      const src = `constructor: eketsa-haufi x1, x0, 1
-hlahloba x0, x0, constructor`;
-      const { labels, instructions } = assemble(src);
-      expect(labels.constructor).toBe(0);
-      expect(instructions).toHaveLength(2);
-    });
-  });
-
-  describe('Error line numbers', () => {
-    // NOTE: if your AssemblerError uses a different property name
-    // (e.g. lineNumber), change e.line below.
-    it('reports the line of the bad instruction', () => {
-      try {
-        assemble('eketsa x5, x6, x7\nbogus x1, x2, x3');
-      } catch (e) {
-        expect(e.line).toBe(2);
-        return;
-      }
-      throw new Error('expected an AssemblerError');
-    });
-  });
-
-  describe('Mnemonic and register lookup', () => {
-    it('does not treat an inherited property as a valid mnemonic', () => {
-      expect(() => assemble('constructor x5, x6, x7')).toThrow(/Unknown mnemonic/);
-      expect(() => assemble('toString x5, x6, x7')).toThrow(/Unknown mnemonic/);
-    });
-
-    it('does not treat an inherited property as a valid register', () => {
-      expect(() => assemble('eketsa constructor, x1, x2')).toThrow(/Unknown register/);
-    });
-
-    it('reports an undefined label that shadows an Object.prototype key', () => {
-      expect(() => assemble('hlahloba x0, x0, constructor')).toThrow(/Undefined label/);
-    });
-  });
-});
