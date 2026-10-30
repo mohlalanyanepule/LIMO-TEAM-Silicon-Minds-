@@ -52,3 +52,77 @@ function parseMem(tok, line) {
 function encode(def, f) {
   let w;
   if (def.fmt === 'R') {
+    w = (f.f7 << 22) | (f.rs2 << 18) | (f.rs1 << 14) | (def.f3 << 11) | (f.rd << 7) | def.op;
+  } else if (def.fmt === 'I') {
+    w = ((f.imm & 0x3fff) << 18) | (f.rs1 << 14) | (def.f3 << 11) | (f.rd << 7) | def.op;
+  } else if (def.fmt === 'S') {
+    const imm = f.imm & 0x3fff;
+    w = ((imm >> 4) << 22) | (f.rs2 << 18) | (f.rs1 << 14) | (def.f3 << 11) | ((imm & 0xf) << 7) | def.op;
+  } else { // B: offset[15:2] stored, same layout as S
+    const o = (f.imm >> 2) & 0x3fff;
+    w = ((o >> 4) << 22) | (f.rs2 << 18) | (f.rs1 << 14) | (def.f3 << 11) | ((o & 0xf) << 7) | def.op;
+  }
+  return w >>> 0;
+}
+
+function splitOperands(s) {
+  return s.trim() === '' ? [] : s.split(',').map(x => x.trim());
+}
+
+function assemble(source) {
+  const lines = source.split(/\r?\n/);
+  const labels = {};
+  const items = [];
+  let pc = 0;
+  // pass 1: labels and instructions
+  lines.forEach((raw, idx) => {
+    const ln = idx + 1;
+    let text = raw.replace(/#.*$/, '').trim();
+    let m;
+    while ((m = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/))) {
+      if (labels[m[1]] !== undefined) throw new AssemblerError(ln, `Label "${m[1]}" is defined twice.`);
+      labels[m[1]] = pc;
+      text = m[2].trim();
+    }
+    if (!text) return;
+    const words = text.split(/\s+/);
+    let name = clean(words[0]), rest;
+    if (words[1] && INSTR[name + ' ' + clean(words[1])] && /^ho$/i.test(words[1])) {
+      name = name + ' ' + clean(words[1]);
+      rest = text.slice(text.indexOf(words[1]) + words[1].length);
+    } else {
+      rest = text.slice(words[0].length);
+    }
+    if (!INSTR[name]) throw new AssemblerError(ln, `Unknown instruction "${words[0]}".`);
+    items.push({ ln, name, ops: splitOperands(rest), pc, text });
+    pc += 4;
+  });
+  // pass 2: encode
+  const out = items.map(it => {
+    const def = INSTR[it.name], o = it.ops, ln = it.ln;
+    const need = n => { if (o.length !== n) throw new AssemblerError(ln, `"${it.name}" needs ${n} operands, found ${o.length}.`); };
+    let f = {};
+    switch (def.syn) {
+      case 'rrr': need(3); f = { rd: parseReg(o[0], ln), rs1: parseReg(o[1], ln), rs2: parseReg(o[2], ln), f7: def.f7 }; break;
+      case 'rri': need(3); f = { rd: parseReg(o[0], ln), rs1: parseReg(o[1], ln), imm: parseImm(o[2], ln, -8192, 8191) }; break;
+      case 'shift': need(3); f = { rd: parseReg(o[0], ln), rs1: parseReg(o[1], ln), imm: parseImm(o[2], ln, 0, 31) }; break;
+      case 'load': { need(2); const m = parseMem(o[1], ln); f = { rd: parseReg(o[0], ln), rs1: m.rs1, imm: m.imm }; break; }
+      case 'store': { need(2); const m = parseMem(o[1], ln); f = { rs2: parseReg(o[0], ln), rs1: m.rs1, imm: m.imm }; break; }
+      case 'branch': {
+        need(3);
+        const target = labels[o[2]];
+        if (target === undefined) throw new AssemblerError(ln, `Unknown label "${o[2]}".`);
+        const off = target - it.pc;
+        if (off < -32768 || off > 32764) throw new AssemblerError(ln, `Branch to "${o[2]}" is too far (${off} bytes).`);
+        f = { rs1: parseReg(o[0], ln), rs2: parseReg(o[1], ln), imm: off };
+        break;
+      }
+    }
+    const word = encode(def, f);
+    return { line: ln, pc: it.pc, address: it.pc, text: it.text, word, hex: '0x' + word.toString(16).toUpperCase().padStart(8, '0'),
+             bin: word.toString(2).padStart(32, '0') };
+  });
+  return { words: out.map(x => x.word), listing: out, instructions: out, labels };
+}
+
+export { assemble, AssemblerError, INSTR, REG_NAMES };
