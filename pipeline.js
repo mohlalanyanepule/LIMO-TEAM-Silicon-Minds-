@@ -161,6 +161,11 @@ export class Pipeline {
       }
     }
 
+    if (snap.WB) {
+      const w = Boolean(old.memwb.controls.RegWrite && old.memwb.rdAddr !== 0);
+      Object.assign(snap.WB, { writes: w, rd: old.memwb.rdAddr, value: w ? writeBackValue(old.memwb) | 0 : 0 });
+    }
+
     // ---- MEM ----
     snap.MEM = stageInfo(old.exmem);
     let newMemwb = bubble();
@@ -173,6 +178,15 @@ export class Pipeline {
         snap.values.memData = old.exmem.controls.MemRead ? memData : old.exmem.storeValue;
       }
       newMemwb = { ...old.exmem, memData };
+    }
+
+    if (snap.MEM) {
+      const isMem = Boolean(old.exmem.controls.MemRead || old.exmem.controls.MemWrite);
+      Object.assign(snap.MEM, {
+        isMemory: isMem,
+        address: isMem ? old.exmem.aluResult >>> 0 : null,
+        memData: isMem ? snap.values.memData : null,
+      });
     }
 
     // ---- EX ----
@@ -215,12 +229,14 @@ export class Pipeline {
       snap.values.rs2Value = b | 0;
       snap.values.immediate = old.idex.immediate;
       newExmem = { ...old.idex, aluResult: result, storeValue: b | 0 };
+      Object.assign(snap.EX, { aluResult: result, branchTaken: false, branchTarget: null });
 
       if (c.Branch) {
         const target = (old.idex.pc + old.idex.immediate) >>> 0;
         snap.values.branchTarget = target;
         const equal = result === 0;
         const taken = c.branchCompare === 'eq' ? equal : !equal;
+        Object.assign(snap.EX, { branchTaken: taken, branchTarget: target });
         if (taken) {
           redirect = target;
           if (target === old.idex.pc) this.halting = true; // branch to itself = halt
@@ -236,6 +252,13 @@ export class Pipeline {
       const d = old.ifid.decoded;
       const controls = controlFor(d);
       snap.controls = controls;
+      Object.assign(snap.ID, {
+        rs1: d.rs1 ?? 0, rs2: d.rs2 ?? 0,
+        rs1Value: d.usesRs1 ? this.regs[d.rs1 ?? 0] : undefined,
+        rs2Value: d.usesRs2 ? this.regs[d.rs2 ?? 0] : undefined,
+        immediate: d.immediate ?? 0,
+        controls,
+      });
       const rs1Addr = d.rs1 ?? 0;
       const rs2Addr = d.rs2 ?? 0;
       const need1 = d.usesRs1 && rs1Addr !== 0;
@@ -394,6 +417,21 @@ export class Pipeline {
       'EX/MEM': this.exmem,
       'MEM/WB': this.memwb,
     };
+  }
+
+  // Register file for the state view; `changed` marks values that differ from
+  // the state before the last cycle.
+  registerFile() {
+    const prev = this._undo.length ? this._undo[this._undo.length - 1].regs : this.regs;
+    return this.regs.map((value, index) => ({ index, value, changed: value !== prev[index] }));
+  }
+
+  // Non-empty data memory words, sorted by address.
+  dataMemory() {
+    const prev = this._undo.length ? this._undo[this._undo.length - 1].dmem : new Map();
+    return [...this.dmem.entries()]
+      .sort((x, y) => x[0] - y[0])
+      .map(([address, value]) => ({ address, value, changed: prev.get(address) !== value }));
   }
 
   stats() {
