@@ -1,0 +1,6 @@
+# Program 5 - RAW chain, resolved by forwarding (no stalls)
+eketsa ho r3, r0, 1
+eketsa r4, r3, r3
+eketsa r5, r4, r4
+eketsa r6, r5, r5
+fin: tekano r0, r0, fin

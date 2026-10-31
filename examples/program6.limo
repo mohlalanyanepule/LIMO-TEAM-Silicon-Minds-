@@ -1,0 +1,6 @@
+# Program 6 - load-use stall (one bubble even with forwarding)
+eketsa ho r3, r0, 25
+boloka r3, 0(r0)
+jara r4, 0(r0)
+eketsa ho r5, r4, 5
+fin: tekano r0, r0, fin

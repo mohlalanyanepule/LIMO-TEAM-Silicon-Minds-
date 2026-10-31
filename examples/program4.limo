@@ -1,0 +1,8 @@
+# Program 4 - branch NOT taken (tekano with different registers)
+# r3=5, r4=6 differ, so tekano falls through and r5 = 1 runs.
+eketsa ho r3, r0, 5
+eketsa ho r4, r0, 6
+tekano r3, r4, skip
+eketsa ho r5, r0, 1
+skip: eketsa ho r6, r0, 2
+fin: tekano r0, r0, fin

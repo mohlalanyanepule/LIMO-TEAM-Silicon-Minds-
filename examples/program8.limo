@@ -1,0 +1,9 @@
+# Program 8 - shift, logic and memory mix
+eketsa ho r3, r0, 3
+suthisa r4, r3, 4
+kopanyetsa r5, r4, 40
+kapa r6, r4, r3
+le r7, r6, r5
+boloka r6, 8(r0)
+jara r8, 8(r0)
+fin: tekano r0, r0, fin
