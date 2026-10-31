@@ -84,15 +84,21 @@ export const SIGNAL_MEANINGS = {
 };
 
 // Return a fresh copy of the control signals for a decoded instruction.
+// Accepts a decoded instruction (from decode()) or a bare mnemonic string.
 export function controlSignals(decoded) {
-  if (!decoded || !decoded.valid) return { ...NOP_CONTROL };
-  const entry = Object.prototype.hasOwnProperty.call(CONTROL_TABLE, decoded.mnemonic)
-    ? CONTROL_TABLE[decoded.mnemonic]
+  if (!decoded) return { ...NOP_CONTROL };
+  if (typeof decoded === 'object' && decoded.valid === false) return { ...NOP_CONTROL };
+  const mnemonic = typeof decoded === 'string' ? decoded : decoded.mnemonic;
+  const entry = Object.prototype.hasOwnProperty.call(CONTROL_TABLE, mnemonic)
+    ? CONTROL_TABLE[mnemonic]
     : null;
   return entry ? { ...entry } : { ...NOP_CONTROL };
 }
 
-// Aliases, in case other files use a different name.
+// pipeline.js imports this name.
+export const controlFor = controlSignals;
+
+// Other aliases, in case other files use a different name.
 export const generateControl = controlSignals;
 export const getControlSignals = controlSignals;
 export const decodeControl = controlSignals;
