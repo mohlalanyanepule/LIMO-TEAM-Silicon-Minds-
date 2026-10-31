@@ -18,9 +18,9 @@
       <h2>Editor</h2>
       <textarea id="editor" spellcheck="false" placeholder="Type LIMO assembly here...
 
-eketsa-haufi x5, lefela, 10
-eketsa-haufi x6, lefela, 20
-eketsa x7, x5, x6"></textarea>
+eketsa ho r5, lefela, 10
+eketsa ho r6, lefela, 20
+eketsa r7, r5, r6"></textarea>
       <div class="controls">
         <button id="assemble">Assemble</button>
         <button id="load-example">Load Example</button>
@@ -45,8 +45,12 @@ eketsa x7, x5, x6"></textarea>
         <button id="run" title="Run until the program halts" aria-label="Run">Run</button>
         <button id="pause" title="Pause after the current cycle" aria-label="Pause">Pause</button>
         <button id="reset" title="Clear the registers, memory and pipeline" aria-label="Reset">Reset</button>
+        <label class="forwarding-switch" title="ON: results are forwarded to the next instruction. OFF: a dependent instruction waits (stalls) until the result is written back. Changing this resets the pipeline.">
+          <input type="checkbox" id="forwarding" checked /> Forwarding
+        </label>
       </div>
       <p id="status" class="status" role="status">Load a program to start.</p>
+      <p id="hazards" class="status" role="status">Hazards: none.</p>
       <div id="stages" class="stages">
         <div class="stage"><h3>IF</h3><div class="stage-body"></div></div>
         <div class="stage"><h3>ID</h3><div class="stage-body"></div></div>
