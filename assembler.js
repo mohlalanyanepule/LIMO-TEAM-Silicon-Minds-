@@ -120,7 +120,8 @@ function assemble(source) {
     }
     const word = encode(def, f);
     return { line: ln, pc: it.pc, address: it.pc, text: it.text, word, hex: '0x' + word.toString(16).toUpperCase().padStart(8, '0'),
-             bin: word.toString(2).padStart(32, '0') };
+             bin: word.toString(2).padStart(32, '0'),
+             binary: word.toString(2).padStart(32, '0'), source: it.text };
   });
   return { words: out.map(x => x.word), listing: out, instructions: out, labels };
 }
