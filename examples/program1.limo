@@ -1,42 +1,12 @@
-==========================================================
-PROGRAM 1
-============================================================
-
-CODE (address, machine word, source)
-    0  0x001C0193  eketsa ho r3, r0, 7
-    4  0x00140213  eketsa ho r4, r0, 5
-    8  0x0010C2B3  eketsa r5, r3, r4
-   12  0x0810C333  fokotsa r6, r3, r4
-   16  0x00114393  eketsa ho r7, r5, 4
-   20  0x000D7C33  le r8, r5, r3
-   24  0x0010F4B3  kapa r9, r3, r4
-   28  0x00217D13  kopanyetsa r10, r5, 8
-   32  0x00090D93  suthisa r11, r4, 2
-   36  0x00000063  tekano r0, r0, fin
-
---- Forwarding ON ---
-Halt: self-branch   Cycles: 14   Instructions: 10   CPI: 1.40   Stalls: 0   Flushed: 0
-Registers (non-zero): r3=7  r4=5  r5=12  r6=2  r7=16  r8=4  r9=7  r10=8  r11=20
-Data memory: (empty)
-
-Cycle-by-cycle (pc of the instruction in each stage; - = empty, * = stall, F = flush)
- cyc  IF   ID   EX   MEM  WB   note
-   1  0    -    -    -    -    
-   2  4    0    -    -    -    
-   3  8    4    0    -    -    
-   4  12   8    4    0    -    
-   5  16   12   8    4    0    fwdA MEM/WB; fwdB EX/MEM
-   6  20   16   12   8    4    fwdB MEM/WB
-   7  24   20   16   12   8    fwdA MEM/WB
-   8  28   24   20   16   12   
-   9  32   28   24   20   16   
-  10  36   32   28   24   20   
-  11  -    36   32   28   24   
-  12  -    -    36   32   28   F flush 0 -> pc 36
-  13  -    -    -    36   32   
-  14  -    -    -    -    36   
-
---- Forwarding OFF ---
-Halt: self-branch   Cycles: 17   Instructions: 10   CPI: 1.70   Stalls: 3   Flushed: 0
-Registers (non-zero): r3=7  r4=5  r5=12  r6=2  r7=16  r8=4  r9=7  r10=8  r11=20
-Data memory: (empty)
+# LIMO example 1 - arithmetic and logic
+# Expected: r5=12 r6=2 r7=16 r8=4 r9=7 r10=8 r11=20
+eketsa ho r3, r0, 7      # r3 = 7
+eketsa ho r4, r0, 5      # r4 = 5
+eketsa r5, r3, r4        # r5 = 7 + 5 = 12
+fokotsa r6, r3, r4       # r6 = 7 - 5 = 2
+eketsa ho r7, r5, 4      # r7 = 12 + 4 = 16
+le r8, r5, r3            # r8 = 12 AND 7 = 4
+kapa r9, r3, r4          # r9 = 7 OR 5 = 7
+kopanyetsa r10, r5, 8    # r10 = 12 AND 8 = 8
+suthisa r11, r4, 2       # r11 = 5 << 2 = 20
+fin: tekano r0, r0, fin  # halt: branch to itself
