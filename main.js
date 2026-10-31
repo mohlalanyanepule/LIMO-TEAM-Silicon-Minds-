@@ -20,12 +20,13 @@ const hex = (value) => `0x${(value >>> 0).toString(16).padStart(8, '0')}`;
 
 let pipeline = null;
 let timer = null;
+let loadError = null;
 
-const EXAMPLE = `eketsa-haufi x5, lefela, 10
-eketsa-haufi x6, lefela, 20
-eketsa x7, x5, x6
-boloka x7, 0(mokgethi)
-fin: hlahloba lefela, lefela, fin`;
+const EXAMPLE = `eketsa ho r5, lefela, 10
+eketsa ho r6, lefela, 20
+eketsa r7, r5, r6
+boloka r7, 0(lefela)
+fin: tekano lefela, lefela, fin`;
 
 loadExampleBtn.addEventListener('click', () => {
   editor.value = EXAMPLE;
@@ -59,12 +60,12 @@ assembleBtn.addEventListener('click', () => {
 
 document.getElementById('load').addEventListener('click', () => {
   stop();
+  loadError = null;
   try {
     pipeline = new Pipeline(assemble(editor.value));
   } catch (err) {
     pipeline = null;
-    statusEl.textContent = err instanceof AssemblerError ? err.message : String(err);
-    statusEl.classList.add('error');
+    loadError = err instanceof AssemblerError ? err.message : String(err);
   }
   render();
 });
@@ -125,15 +126,15 @@ function renderStages() {
     if (entry.text) lines.push(entry.text);
 
     if (name === 'ID') {
-      if (entry.rs1Value !== undefined) lines.push(`x${entry.rs1} = ${hex(entry.rs1Value)}`);
-      if (entry.rs2Value !== undefined) lines.push(`x${entry.rs2} = ${hex(entry.rs2Value)}`);
+      if (entry.rs1Value !== undefined) lines.push(`r${entry.rs1} = ${hex(entry.rs1Value)}`);
+      if (entry.rs2Value !== undefined) lines.push(`r${entry.rs2} = ${hex(entry.rs2Value)}`);
       if (entry.immediate) lines.push(`imm = ${entry.immediate}`);
     }
     if (name === 'EX') lines.push(`alu = ${hex(entry.aluResult)}`);
     if (name === 'EX' && entry.branchTaken) lines.push(`branch → ${hex(entry.branchTarget)}`);
-    if (name === 'MEM') lines.push(`[${hex(entry.address)}] = ${hex(entry.memData)}`);
+    if (name === 'MEM') lines.push(entry.isMemory ? `[${hex(entry.address)}] = ${hex(entry.memData)}` : 'no memory access');
     if (name === 'WB') {
-      lines.push(entry.writes ? `x${entry.rd} = ${hex(entry.value)}` : 'no register write');
+      lines.push(entry.writes ? `r${entry.rd} = ${hex(entry.value)}` : 'no register write');
     }
     body.textContent = lines.join('\n');
   });
@@ -163,7 +164,7 @@ function renderState() {
   registersEl.innerHTML = registers
     .map(({ index, value, changed }) => `
       <tr class="${changed ? 'changed' : ''}">
-        <td>x${index} ${REGISTER_NAMES[index]}</td>
+        <td>r${index} ${REGISTER_NAMES[index]}</td>
         <td>${hex(value)}</td>
       </tr>`)
     .join('');
@@ -202,11 +203,16 @@ function render() {
 
   statusEl.classList.remove('error');
   if (!pipeline) {
-    statusEl.textContent = 'Load a program to start.';
+    statusEl.textContent = loadError ?? 'Load a program to start.';
+    if (loadError) statusEl.classList.add('error');
   } else if (pipeline.halted) {
     const reason = pipeline.haltReason === 'self-branch'
       ? 'Halted on a self-branch.'
-      : 'Program finished.';
+      : pipeline.haltReason === 'error'
+        ? `Stopped: ${pipeline.error}.`
+        : pipeline.haltReason === 'cycle-limit'
+          ? 'Stopped at the cycle limit.'
+          : 'Program finished.';
     statusEl.textContent = `${reason} ${pipeline.stats().cycles} cycles.`;
   } else if (timer !== null) {
     statusEl.textContent = `Running — cycle ${pipeline.cycle + 1}.`;
