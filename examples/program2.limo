@@ -1,87 +1,21 @@
-===========================================================
-PROGRAM 2
-============================================================
-
-CODE (address, machine word, source)
-    0  0x00280193  eketsa ho r3, r0, 10
-    4  0x000C1023  boloka r3, 0(r0)
-    8  0x00500193  eketsa ho r3, r0, 20
-   12  0x000C1223  boloka r3, 4(r0)
-   16  0x00780193  eketsa ho r3, r0, 30
-   20  0x000C1423  boloka r3, 8(r0)
-   24  0x00A00193  eketsa ho r3, r0, 40
-   28  0x000C1623  boloka r3, 12(r0)
-   32  0x00C80193  eketsa ho r3, r0, 50
-   36  0x004C1023  boloka r3, 16(r0)
-   40  0x00000213  eketsa ho r4, r0, 0
-   44  0x00500293  eketsa ho r5, r0, 20
-   48  0x00000313  eketsa ho r6, r0, 0
-   52  0x00011383  jara r7, 0(r4)
-   56  0x001D8333  eketsa r6, r6, r7
-   60  0x00110213  eketsa ho r4, r4, 4
-   64  0xFFD50EE3  phapano r4, r5, loop
-   68  0x00000063  tekano r0, r0, fin
-
---- Forwarding ON ---
-Halt: self-branch   Cycles: 51   Instructions: 34   CPI: 1.50   Stalls: 5   Flushed: 4
-Registers (non-zero): r3=50  r4=20  r5=20  r6=150  r7=50
-Data memory: [0]=10  [4]=20  [8]=30  [12]=40  [16]=50
-
-Cycle-by-cycle (pc of the instruction in each stage; - = empty, * = stall, F = flush)
- cyc  IF   ID   EX   MEM  WB   note
-   1  0    -    -    -    -    
-   2  4    0    -    -    -    
-   3  8    4    0    -    -    
-   4  12   8    4    0    -    fwdB EX/MEM
-   5  16   12   8    4    0    
-   6  20   16   12   8    4    fwdB EX/MEM
-   7  24   20   16   12   8    
-   8  28   24   20   16   12   fwdB EX/MEM
-   9  32   28   24   20   16   
-  10  36   32   28   24   20   fwdB EX/MEM
-  11  40   36   32   28   24   
-  12  44   40   36   32   28   fwdB EX/MEM
-  13  48   44   40   36   32   
-  14  52   48   44   40   36   
-  15  56   52   48   44   40   
-  16  56   56   52   48   44   * stall (load-use)
-  17  60   56   -    52   48   
-  18  64   60   56   -    52   fwdB MEM/WB
-  19  68   64   60   56   -    
-  20  -    68   64   60   56   F flush 1 -> pc 52; fwdA EX/MEM
-  21  52   -    -    64   60   
-  22  56   52   -    -    64   
-  23  56   56   52   -    -    * stall (load-use)
-  24  60   56   -    52   -    
-  25  64   60   56   -    52   fwdB MEM/WB
-  26  68   64   60   56   -    
-  27  -    68   64   60   56   F flush 1 -> pc 52; fwdA EX/MEM
-  28  52   -    -    64   60   
-  29  56   52   -    -    64   
-  30  56   56   52   -    -    * stall (load-use)
-  31  60   56   -    52   -    
-  32  64   60   56   -    52   fwdB MEM/WB
-  33  68   64   60   56   -    
-  34  -    68   64   60   56   F flush 1 -> pc 52; fwdA EX/MEM
-  35  52   -    -    64   60   
-  36  56   52   -    -    64   
-  37  56   56   52   -    -    * stall (load-use)
-  38  60   56   -    52   -    
-  39  64   60   56   -    52   fwdB MEM/WB
-  40  68   64   60   56   -    
-  41  -    68   64   60   56   F flush 1 -> pc 52; fwdA EX/MEM
-  42  52   -    -    64   60   
-  43  56   52   -    -    64   
-  44  56   56   52   -    -    * stall (load-use)
-  45  60   56   -    52   -    
-  46  64   60   56   -    52   fwdB MEM/WB
-  47  68   64   60   56   -    
-  48  -    68   64   60   56   fwdA EX/MEM
-  49  -    -    68   64   60   F flush 0 -> pc 68
-  50  -    -    -    68   64   
-  51  -    -    -    -    68   
-
---- Forwarding OFF ---
-Halt: self-branch   Cycles: 76   Instructions: 34   CPI: 2.24   Stalls: 30   Flushed: 4
-Registers (non-zero): r3=50  r4=20  r5=20  r6=150  r7=50
-Data memory: [0]=10  [4]=20  [8]=30  [12]=40  [16]=50
+# LIMO example 2 - array sum with a loop
+# Stores 10,20,30,40,50 at addresses 0..16, then adds them up.
+# Expected: r6 = 150, r4 = 20
+eketsa ho r3, r0, 10
+boloka r3, 0(r0)
+eketsa ho r3, r0, 20
+boloka r3, 4(r0)
+eketsa ho r3, r0, 30
+boloka r3, 8(r0)
+eketsa ho r3, r0, 40
+boloka r3, 12(r0)
+eketsa ho r3, r0, 50
+boloka r3, 16(r0)
+eketsa ho r4, r0, 0      # r4 = byte offset of the current element
+eketsa ho r5, r0, 20     # r5 = end offset (5 words)
+eketsa ho r6, r0, 0      # r6 = sum
+loop: jara r7, 0(r4)     # r7 = array[i]
+eketsa r6, r6, r7        # sum = sum + r7  (load-use stall)
+eketsa ho r4, r4, 4      # next element
+phapano r4, r5, loop     # repeat until r4 == 20
+fin: tekano r0, r0, fin  # halt
