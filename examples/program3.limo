@@ -1,45 +1,14 @@
-===========================================================
-PROGRAM 3
-============================================================
-
-CODE (address, machine word, source)
-    0  0x00280193  eketsa ho r3, r0, 10
-    4  0x0050C213  eketsa ho r4, r3, 20
-    8  0x000D02B3  eketsa r5, r4, r3
-   12  0x00141023  boloka r5, 0(r0)
-   16  0x00001303  jara r6, 0(r0)
-   20  0x000D83B3  eketsa r7, r6, r3
-   24  0x000CC1E3  tekano r3, r3, over
-   28  0x00040413  eketsa ho r8, r0, 1
-   32  0x00080493  eketsa ho r9, r0, 2
-   36  0x00240513  eketsa ho r10, r0, 9
-   40  0x00000063  tekano r0, r0, fin
-
---- Forwarding ON ---
-Halt: self-branch   Cycles: 16   Instructions: 9   CPI: 1.78   Stalls: 1   Flushed: 2
-Registers (non-zero): r3=10  r4=30  r5=40  r6=40  r7=50  r10=9
-Data memory: [0]=40
-
-Cycle-by-cycle (pc of the instruction in each stage; - = empty, * = stall, F = flush)
- cyc  IF   ID   EX   MEM  WB   note
-   1  0    -    -    -    -    
-   2  4    0    -    -    -    
-   3  8    4    0    -    -    
-   4  12   8    4    0    -    fwdA EX/MEM
-   5  16   12   8    4    0    fwdA EX/MEM; fwdB MEM/WB
-   6  20   16   12   8    4    fwdB EX/MEM
-   7  20   20   16   12   8    * stall (load-use)
-   8  24   20   -    16   12   
-   9  28   24   20   -    16   fwdA MEM/WB
-  10  32   28   24   20   -    F flush 2 -> pc 36
-  11  36   -    -    24   20   
-  12  40   36   -    -    24   
-  13  -    40   36   -    -    
-  14  -    -    40   36   -    F flush 0 -> pc 40
-  15  -    -    -    40   36   
-  16  -    -    -    -    40   
-
---- Forwarding OFF ---
-Halt: self-branch   Cycles: 23   Instructions: 9   CPI: 2.56   Stalls: 8   Flushed: 2
-Registers (non-zero): r3=10  r4=30  r5=40  r6=40  r7=50  r10=9
-Data memory: [0]=40
+# LIMO example 3 - hazards and control
+# RAW with forwarding, a load-use stall, and a taken branch that flushes 2.
+# Expected: r4=30 r5=40 r6=40 r7=50 r8=0 r9=0 r10=9
+eketsa ho r3, r0, 10
+eketsa ho r4, r3, 20     # RAW on r3 (forwarded)
+eketsa r5, r4, r3        # RAW on r4 and r3 (forwarded)
+boloka r5, 0(r0)         # mem[0] = 40
+jara r6, 0(r0)           # r6 = 40
+eketsa r7, r6, r3        # uses r6 right after the load: 1 stall
+tekano r3, r3, over      # always taken
+eketsa ho r8, r0, 1      # flushed
+eketsa ho r9, r0, 2      # flushed
+over: eketsa ho r10, r0, 9
+fin: tekano r0, r0, fin  # halt
