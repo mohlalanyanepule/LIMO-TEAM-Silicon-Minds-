@@ -14,6 +14,8 @@ const signalsEl = document.querySelector('#signals tbody');
 const registersEl = document.querySelector('#registers tbody');
 const memoryEl = document.querySelector('#memory tbody');
 const statsEl = document.getElementById('stats');
+const forwardingEl = document.getElementById('forwarding');
+const hazardsEl = document.getElementById('hazards');
 
 const STAGES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
 const hex = (value) => `0x${(value >>> 0).toString(16).padStart(8, '0')}`;
@@ -62,7 +64,7 @@ document.getElementById('load').addEventListener('click', () => {
   stop();
   loadError = null;
   try {
-    pipeline = new Pipeline(assemble(editor.value));
+    pipeline = new Pipeline(assemble(editor.value), { forwarding: forwardingEl.checked });
   } catch (err) {
     pipeline = null;
     loadError = err instanceof AssemblerError ? err.message : String(err);
@@ -97,6 +99,17 @@ document.getElementById('pause').addEventListener('click', () => {
 document.getElementById('reset').addEventListener('click', () => {
   stop();
   if (pipeline) pipeline.reset();
+  render();
+});
+
+// Changing the forwarding mode in the middle of a run would leave instructions
+// in the pipeline that were fetched under the other rules, so it restarts the program.
+forwardingEl.addEventListener('change', () => {
+  stop();
+  if (pipeline) {
+    pipeline.setForwarding(forwardingEl.checked);
+    pipeline.reset();
+  }
   render();
 });
 
@@ -181,6 +194,18 @@ function renderState() {
       .join('');
 }
 
+function renderHazards() {
+  const cycle = pipeline ? pipeline.history[pipeline.history.length - 1] : null;
+  if (!cycle) {
+    hazardsEl.textContent = 'Hazards: none.';
+    return;
+  }
+  const notes = cycle.hazards.map((hz) => `${hz.type}: ${hz.detail}`);
+  hazardsEl.textContent = notes.length
+    ? `Cycle ${cycle.cycle} hazards — ${notes.join('; ')}`
+    : `Cycle ${cycle.cycle}: no hazards.`;
+}
+
 function renderStats() {
   const stats = pipeline ? pipeline.stats() : null;
   const entries = [
@@ -189,6 +214,7 @@ function renderStats() {
     ['CPI', stats ? stats.cpi.toFixed(2) : '0.00'],
     ['Stalls', stats?.stalls ?? 0],
     ['Flushes', stats?.flushes ?? 0],
+    ['Forwarding', forwardingEl.checked ? 'ON' : 'OFF'],
   ];
   statsEl.innerHTML = entries
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
@@ -198,6 +224,7 @@ function renderStats() {
 function render() {
   renderStages();
   renderSignals();
+  renderHazards();
   renderState();
   renderStats();
 
