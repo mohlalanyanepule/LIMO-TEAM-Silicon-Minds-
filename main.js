@@ -1,13 +1,14 @@
+Main · JS
 import { assemble, AssemblerError } from './assembler.js';
 import { Pipeline } from './pipeline.js';
 import { REGISTER_NAMES } from './decoder.js';
 import { aluName } from './alu.js';
-
+ 
 const editor = document.getElementById('editor');
 const output = document.querySelector('#output tbody');
 const assembleBtn = document.getElementById('assemble');
 const loadExampleBtn = document.getElementById('load-example');
-
+ 
 const statusEl = document.getElementById('status');
 const stagesEl = document.getElementById('stages');
 const signalsEl = document.querySelector('#signals tbody');
@@ -16,24 +17,38 @@ const memoryEl = document.querySelector('#memory tbody');
 const statsEl = document.getElementById('stats');
 const forwardingEl = document.getElementById('forwarding');
 const hazardsEl = document.getElementById('hazards');
-
+ 
 const STAGES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
 const hex = (value) => `0x${(value >>> 0).toString(16).padStart(8, '0')}`;
-
+ 
 let pipeline = null;
 let timer = null;
 let loadError = null;
-
+ 
+// Wired datapath diagram (datapath-view.js). It is loaded on its own, so if the
+// file or the #datapath-diagram element is missing the rest of the simulator
+// still works.
+let dpView = null;
+const dpEl = document.getElementById('datapath-diagram');
+if (dpEl) {
+  import('./datapath-view.js')
+    .then((module) => {
+      dpView = module.createDatapathView(dpEl);
+      render();
+    })
+    .catch((err) => console.error('Datapath diagram unavailable:', err));
+}
+ 
 const EXAMPLE = `eketsa ho r5, lefela, 10
 eketsa ho r6, lefela, 20
 eketsa r7, r5, r6
 boloka r7, 0(lefela)
 fin: tekano lefela, lefela, fin`;
-
+ 
 loadExampleBtn.addEventListener('click', () => {
   editor.value = EXAMPLE;
 });
-
+ 
 assembleBtn.addEventListener('click', () => {
   output.innerHTML = '';
   try {
@@ -59,7 +74,7 @@ assembleBtn.addEventListener('click', () => {
     }
   }
 });
-
+ 
 document.getElementById('load').addEventListener('click', () => {
   stop();
   loadError = null;
@@ -71,13 +86,13 @@ document.getElementById('load').addEventListener('click', () => {
   }
   render();
 });
-
+ 
 document.getElementById('step').addEventListener('click', () => {
   stop();
   if (pipeline && !pipeline.halted) pipeline.step();
   render();
 });
-
+ 
 document.getElementById('run').addEventListener('click', () => {
   if (!pipeline || pipeline.halted) return;
   timer = setInterval(() => {
@@ -90,18 +105,18 @@ document.getElementById('run').addEventListener('click', () => {
   }, 400);
   render();
 });
-
+ 
 document.getElementById('pause').addEventListener('click', () => {
   stop();
   render();
 });
-
+ 
 document.getElementById('reset').addEventListener('click', () => {
   stop();
   if (pipeline) pipeline.reset();
   render();
 });
-
+ 
 // Changing the forwarding mode in the middle of a run would leave instructions
 // in the pipeline that were fetched under the other rules, so it restarts the program.
 forwardingEl.addEventListener('change', () => {
@@ -112,32 +127,32 @@ forwardingEl.addEventListener('change', () => {
   }
   render();
 });
-
+ 
 function stop() {
   if (timer !== null) {
     clearInterval(timer);
     timer = null;
   }
 }
-
+ 
 function renderStages() {
   const cards = stagesEl.children;
   const cycle = pipeline ? pipeline.history[pipeline.history.length - 1] : null;
-
+ 
   STAGES.forEach((name, index) => {
     const card = cards[index];
     const entry = cycle ? cycle[name] : null;
     card.classList.toggle('active', Boolean(entry));
-
+ 
     const body = card.querySelector('.stage-body');
     if (!entry) {
       body.textContent = pipeline && pipeline.halted ? '—' : '';
       return;
     }
-
+ 
     const lines = [hex(entry.pc)];
     if (entry.text) lines.push(entry.text);
-
+ 
     if (name === 'ID') {
       if (entry.rs1Value !== undefined) lines.push(`r${entry.rs1} = ${hex(entry.rs1Value)}`);
       if (entry.rs2Value !== undefined) lines.push(`r${entry.rs2} = ${hex(entry.rs2Value)}`);
@@ -152,7 +167,7 @@ function renderStages() {
     body.textContent = lines.join('\n');
   });
 }
-
+ 
 function renderSignals() {
   const cycle = pipeline ? pipeline.history[pipeline.history.length - 1] : null;
   const controls = cycle && cycle.ID ? cycle.ID.controls : null;
@@ -166,12 +181,12 @@ function renderSignals() {
     ['Branch', controls?.Branch],
     ['PCSrc', controls?.PCSrc],
   ];
-
+ 
   signalsEl.innerHTML = rows
     .map(([name, value]) => `<tr><th>${name}</th><td>${value === null || value === undefined ? '—' : value}</td></tr>`)
     .join('');
 }
-
+ 
 function renderState() {
   const registers = pipeline ? pipeline.registerFile() : [];
   registersEl.innerHTML = registers
@@ -181,7 +196,7 @@ function renderState() {
         <td>${hex(value)}</td>
       </tr>`)
     .join('');
-
+ 
   const memory = pipeline ? pipeline.dataMemory() : [];
   memoryEl.innerHTML = memory.length === 0
     ? '<tr><td colspan="2">empty</td></tr>'
@@ -193,7 +208,7 @@ function renderState() {
         </tr>`)
       .join('');
 }
-
+ 
 function renderHazards() {
   const cycle = pipeline ? pipeline.history[pipeline.history.length - 1] : null;
   if (!cycle) {
@@ -205,7 +220,7 @@ function renderHazards() {
     ? `Cycle ${cycle.cycle} hazards — ${notes.join('; ')}`
     : `Cycle ${cycle.cycle}: no hazards.`;
 }
-
+ 
 function renderStats() {
   const stats = pipeline ? pipeline.stats() : null;
   const entries = [
@@ -220,14 +235,26 @@ function renderStats() {
     .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
     .join('');
 }
-
+ 
+// Redraws the wired diagram. Any problem here is logged and never stops the simulator.
+function renderDiagram() {
+  if (!dpView) return;
+  try {
+    if (pipeline && pipeline.history.length > 0) dpView.update(pipeline);
+    else dpView.clear();
+  } catch (err) {
+    console.error('Datapath diagram:', err);
+  }
+}
+ 
 function render() {
   renderStages();
   renderSignals();
   renderHazards();
   renderState();
   renderStats();
-
+  renderDiagram();
+ 
   statusEl.classList.remove('error');
   if (!pipeline) {
     statusEl.textContent = loadError ?? 'Load a program to start.';
@@ -247,5 +274,7 @@ function render() {
     statusEl.textContent = `Ready at cycle ${pipeline.cycle}.`;
   }
 }
-
+ 
 render();
+ 
+Claude finished the response
