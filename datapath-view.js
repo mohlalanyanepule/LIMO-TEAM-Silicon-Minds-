@@ -1,41 +1,4 @@
-Claude
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Datapath view · JS
 // datapath-view.js - pipelined LIMO datapath drawn as SVG, with wires,
 // live values and highlighting. Usage (see bottom of file):
 //   const view = createDatapathView(document.getElementById('datapath-diagram'));
@@ -260,4 +223,4 @@ export function createDatapathView(container) {
 //   ...after pipeline.step() or pipeline.run():  dpView.update(pipeline);
 //   ...after Load or Reset:                      dpView.clear();
  
-Claude finished the response
+
