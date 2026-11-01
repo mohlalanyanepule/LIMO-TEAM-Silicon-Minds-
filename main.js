@@ -1,4 +1,3 @@
-Main · JS
 import { assemble, AssemblerError } from './assembler.js';
 import { Pipeline } from './pipeline.js';
 import { REGISTER_NAMES } from './decoder.js';
