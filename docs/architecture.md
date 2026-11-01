@@ -118,3 +118,262 @@ Key control signals generated in ID and carried down the pipeline: `RegWrite`, `
 ---
 
 **References:** Patterson & Hennessy (RISC-V Edition), Harris & Harris (DDCA RISC-V Edition), course ISA specification (`docs/ISA-specification.md`).
+
+---
+
+## 9) LIMO Datapath Diagram (5-Stage Pipelined)
+
+The diagram below shows the datapath structure used by the LIMO simulator, with pipeline registers between stages, control signals, and the paths for data memory and write-back.
+
+```mermaid
+flowchart TD
+  subgraph IF ["IF - Instruction Fetch"]
+    PC[PC]
+    IM[Instruction Memory]
+    ADD4[+4]
+    PC4[PC+4]
+  end
+
+  subgraph IFID ["IF/ID Register"]
+    IFID_PC[PC]
+    IFID_INST[Instruction]
+    IFID_PC4[PC+4]
+  end
+
+  subgraph ID ["ID - Instruction Decode"]
+    DEC[Decoder]
+    RF[(Register File\n16 registers)]
+    CTRL[Control Unit]
+    IMM[Immediate Generator\nSign Extend]
+    HAZ[Hazard Detection\nM3: Stall]
+  end
+
+  subgraph IDEX ["ID/EX Register"]
+    IDEX_CTRL[Control Signals]
+    IDEX_PC[PC]
+    IDEX_RS1[rs1 Value]
+    IDEX_RS2[rs2 Value]
+    IDEX_IMM[Immediate]
+    IDEX_RD[rd/rs1/rs2]
+  end
+
+  subgraph EX ["EX - Execute"]
+    MUXA[ALU Src A Mux]
+    MUXB[ALU Src B Mux]
+    ALU[ALU]
+    BR[Branch\nComparator]
+    BTARGET[Branch Target\nPC + Imm]
+  end
+
+  subgraph EXMEM ["EX/MEM Register"]
+    EXMEM_CTRL[Control Signals]
+    EXMEM_ALU[ALU Result / Address]
+    EXMEM_RS2[Store Data]
+    EXMEM_RD[rd]
+  end
+
+  subgraph MEM ["MEM - Memory Access"]
+    DMEM[Data Memory\nLoad/Store]
+  end
+
+  subgraph MEMWB ["MEM/WB Register"]
+    MEMWB_CTRL[Control Signals]
+    MEMWB_DATA[Mem Data / ALU Result]
+    MEMWB_RD[rd]
+  end
+
+  subgraph WB ["WB - Write Back"]
+    MUXWB[MemToReg Mux]
+    WBDATA[Write Data]
+  end
+
+  PC --> IM
+  IM --> IFID_INST
+  PC --> ADD4
+  ADD4 --> PC4
+  PC4 --> IFID_PC4
+  PC4 --> PC
+
+  IFID_INST --> DEC
+  IFID_INST --> IMM
+  DEC --> RF
+  DEC --> CTRL
+  RF --> IDEX_RS1
+  RF --> IDEX_RS2
+  IFID_PC --> IDEX_PC
+
+  CTRL --> IDEX_CTRL
+  IMM --> IDEX_IMM
+  DEC --> IDEX_RD
+
+  IDEX_RS1 --> MUXA
+  IDEX_RS2 --> MUXB
+  IDEX_IMM --> MUXB
+  IDEX_CTRL --> MUXB
+  IDEX_CTRL --> MUXA
+  MUXA --> ALU
+  MUXB --> ALU
+  IDEX_PC --> BTARGET
+  IDEX_IMM --> BTARGET
+  ALU --> BR
+  IDEX_RS1 --> BR
+  IDEX_RS2 --> BR
+
+  ALU --> EXMEM_ALU
+  IDEX_RS2 --> EXMEM_RS2
+  IDEX_CTRL --> EXMEM_CTRL
+  IDEX_RD --> EXMEM_RD
+
+  EXMEM_ALU --> DMEM
+  EXMEM_RS2 --> DMEM
+  EXMEM_CTRL --> DMEM
+  DMEM --> MEMWB_DATA
+  EXMEM_ALU --> MEMWB_DATA
+  EXMEM_CTRL --> MEMWB_CTRL
+  EXMEM_RD --> MEMWB_RD
+
+  MEMWB_DATA --> MUXWB
+  MEMWB_CTRL --> MUXWB
+  MUXWB --> WBDATA
+  WBDATA --> RF
+
+  HAZ --> PC
+  HAZ --> IFID
+  HAZ --> IDEX
+  BR --> HAZ
+
+  style IF fill:#e8f4ff
+  style ID fill:#f0fff4
+  style EX fill:#fff4e6
+  style MEM fill:#fef3f2
+  style WB fill:#f3e8ff
+  style IFID fill:#f9f9f9
+  style IDEX fill:#f9f9f9
+  style EXMEM fill:#f9f9f9
+  style MEMWB fill:#f9f9f9
+
+---
+
+## 9) LIMO Datapath Diagram (5-Stage Pipelined)
+
+The diagram below shows the datapath structure used by the LIMO simulator, with pipeline registers between stages, control signals, and the paths for data memory and write-back.
+
+```mermaid
+flowchart TD
+  subgraph IF ["IF - Instruction Fetch"]
+    PC[PC]
+    IM[Instruction Memory]
+    ADD4[+4]
+    PC4[PC+4]
+  end
+
+  subgraph IFID ["IF/ID Register"]
+    IFID_PC[PC]
+    IFID_INST[Instruction]
+    IFID_PC4[PC+4]
+  end
+
+  subgraph ID ["ID - Instruction Decode"]
+    DEC[Decoder]
+    RF[(Register File\n16 registers)]
+    CTRL[Control Unit]
+    IMM[Immediate Generator\nSign Extend]
+    HAZ[Hazard Detection\nM3: Stall]
+  end
+
+  subgraph IDEX ["ID/EX Register"]
+    IDEX_CTRL[Control Signals]
+    IDEX_PC[PC]
+    IDEX_RS1[rs1 Value]
+    IDEX_RS2[rs2 Value]
+    IDEX_IMM[Immediate]
+    IDEX_RD[rd/rs1/rs2]
+  end
+
+  subgraph EX ["EX - Execute"]
+    MUXA[ALU Src A Mux]
+    MUXB[ALU Src B Mux]
+    ALU[ALU]
+    BR[Branch\nComparator]
+    BTARGET[Branch Target\nPC + Imm]
+  end
+
+  subgraph EXMEM ["EX/MEM Register"]
+    EXMEM_CTRL[Control Signals]
+    EXMEM_ALU[ALU Result / Address]
+    EXMEM_RS2[Store Data]
+    EXMEM_RD[rd]
+  end
+
+  subgraph MEM ["MEM - Memory Access"]
+    DMEM[Data Memory\nLoad/Store]
+  end
+
+  subgraph MEMWB ["MEM/WB Register"]
+    MEMWB_CTRL[Control Signals]
+    MEMWB_DATA[Mem Data / ALU Result]
+    MEMWB_RD[rd]
+  end
+
+  subgraph WB ["WB - Write Back"]
+    MUXWB[MemToReg Mux]
+    WBDATA[Write Data]
+  end
+
+  PC --> IM
+  IM --> IFID_INST
+  PC --> ADD4
+  ADD4 --> PC4
+  PC4 --> IFID_PC4
+  PC4 --> PC
+
+  IFID_INST --> DEC
+  IFID_INST --> IMM
+  DEC --> RF
+  DEC --> CTRL
+  RF --> IDEX_RS1
+  RF --> IDEX_RS2
+  IFID_PC --> IDEX_PC
+
+  CTRL --> IDEX_CTRL
+  IMM --> IDEX_IMM
+  DEC --> IDEX_RD
+
+  IDEX_RS1 --> MUXA
+  IDEX_RS2 --> MUXB
+  IDEX_IMM --> MUXB
+  IDEX_CTRL --> MUXB
+  IDEX_CTRL --> MUXA
+  MUXA --> ALU
+  MUXB --> ALU
+  IDEX_PC --> BTARGET
+  IDEX_IMM --> BTARGET
+  ALU --> BR
+  IDEX_RS1 --> BR
+  IDEX_RS2 --> BR
+
+  ALU --> EXMEM_ALU
+  IDEX_RS2 --> EXMEM_RS2
+  IDEX_CTRL --> EXMEM_CTRL
+  IDEX_RD --> EXMEM_RD
+
+  EXMEM_ALU --> DMEM
+  EXMEM_RS2 --> DMEM
+  EXMEM_CTRL --> DMEM
+  DMEM --> MEMWB_DATA
+  EXMEM_ALU --> MEMWB_DATA
+  EXMEM_CTRL --> MEMWB_CTRL
+  EXMEM_RD --> MEMWB_RD
+
+  MEMWB_DATA --> MUXWB
+  MEMWB_CTRL --> MUXWB
+  MUXWB --> WBDATA
+  WBDATA --> RF
+
+  HAZ --> PC
+  HAZ --> IFID
+  HAZ --> IDEX
+  BR --> HAZ
+```
+
+**Key points:** Branches resolved in **EX**, control signals carried through pipeline registers, writes to register file in **WB**, and hazard detection/stalling in **M3** (forwarding planned for **M4**).
