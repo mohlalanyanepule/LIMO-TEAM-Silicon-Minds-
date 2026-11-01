@@ -1,4 +1,3 @@
-
 // datapath-view.js - pipelined LIMO datapath drawn as SVG, with wires,
 // live values and highlighting. Usage (see bottom of file):
 //   const view = createDatapathView(document.getElementById('datapath-diagram'));
@@ -20,7 +19,7 @@ const BOXES = [
   ['bradd', 620, 60, 70, 40, 'Branch +', 'Branch adder: PC + immediate = branch target'],
   ['alumux', 620, 215, 36, 60, 'mux', 'ALUSrc mux: second ALU input is rs2 (0) or the immediate (1)'],
   ['alu', 690, 140, 70, 130, 'ALU', 'ALU: arithmetic, logic, address calculation and branch comparison'],
-  ['dmem', 860, 150, 100, 150, 'Data mem', 'Data memory: kenya (load) reads it, boloka (store) writes it'],
+  ['dmem', 860, 150, 100, 150, 'Data mem', 'Data memory: jara (load) reads it, boloka (store) writes it'],
   ['wbmux', 1060, 170, 36, 70, 'mux', 'MemToReg mux: write-back value is the ALU result (0) or loaded data (1)'],
 ];
 const REGS = [['IF/ID', 280], ['ID/EX', 560], ['EX/MEM', 800], ['MEM/WB', 990]];
@@ -142,8 +141,8 @@ export function createDatapathView(container) {
  
     // IF: the instruction fetched this cycle is the one now waiting in IF/ID.
     let fetch = null;
-    if (!rec.stalled && !rec.flushed && pipeline.IF_ID) {
-      const f = pipeline.IF_ID;
+    if (!rec.stalled && !rec.flushed && pipeline.ifid && !pipeline.ifid.isBubble) {
+      const f = pipeline.ifid;
       fetch = { pc: f.pc, pc4: f.pcPlus4, text: decode(f.instruction).text };
       mark(['pc_imem', 'pc_add', 'add_ifid', 'add_mux', 'mux_pc', 'imem_ifid'], ['pc', 'pcmux', 'add4', 'imem']);
     }
@@ -155,12 +154,12 @@ export function createDatapathView(container) {
     // ID
     if (rec.ID) {
       mark(['ifid_ctl', 'ifid_rf1', 'ifid_rf2', 'ifid_imm', 'ifid_pc', 'ctl_idex', 'rf1_idex', 'rf2_idex', 'imm_idex'], ['ctl', 'rf', 'imm']);
-      text('rs1', `x${rec.ID.rs1}: ${hex(rec.ID.rs1Value)}`);
-      text('rs2', `x${rec.ID.rs2}: ${hex(rec.ID.rs2Value)}`);
+      text('rs1', `r${rec.ID.rs1}: ${hex(rec.ID.rs1Value)}`);
+      text('rs2', `r${rec.ID.rs2}: ${hex(rec.ID.rs2Value)}`);
       text('imm', `imm ${rec.ID.immediate | 0}`);
       cap('ID', rec.ID.text ?? '');
     } else {
-      cap('ID', rec.stalled && pipeline.IF_ID ? `${decode(pipeline.IF_ID.instruction).text} (stalled)` : '- (bubble)');
+      cap('ID', rec.stalled && pipeline.ifid && !pipeline.ifid.isBubble ? `${decode(pipeline.ifid.instruction).text} (stalled)` : '- (bubble)');
     }
  
     // EX
@@ -185,7 +184,7 @@ export function createDatapathView(container) {
       if (c && (c.MemRead || c.MemWrite)) {
         mark(['exmem_addr'], ['dmem']);
         text('mem1', `addr ${hex(rec.MEM.address)}`);
-        if (c.MemWrite) { mark(['exmem_store']); text('mem2', `write ${hex(pipeline.lastMemWrite?.value)}`); }
+        if (c.MemWrite) { mark(['exmem_store']); text('mem2', `write ${hex(rec.MEM.memData)}`); }
         if (c.MemRead) { mark(['dm_memwb']); text('mem2', `read ${hex(rec.MEM.memData)}`); }
       }
       if (!c || (c.RegWrite && !c.MemRead)) mark(['exmem_bypass']);
@@ -197,7 +196,7 @@ export function createDatapathView(container) {
       const c = controlsFor(history, rec.WB.pc);
       if (rec.WB.writes) {
         mark([c && c.MemToReg ? 'memwb_mem' : 'memwb_alu', 'wb_bus'], ['wbmux']);
-        text('wb', `x${rec.WB.rd} <- ${hex(rec.WB.value)}`);
+        text('wb', `r${rec.WB.rd} <- ${hex(rec.WB.value)}`);
       }
       cap('WB', rec.WB.text ?? '');
     } else cap('WB', '- (bubble)');
@@ -222,5 +221,3 @@ export function createDatapathView(container) {
 //   const dpView = createDatapathView(document.getElementById('datapath-diagram'));
 //   ...after pipeline.step() or pipeline.run():  dpView.update(pipeline);
 //   ...after Load or Reset:                      dpView.clear();
- 
-
